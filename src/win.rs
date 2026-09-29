@@ -1,0 +1,72 @@
+use std::{os::windows::ffi::OsStrExt, path::Path};
+use windows::{
+    Win32::{
+        Foundation::*,
+        System::LibraryLoader::GetModuleHandleW,
+        UI::{HiDpi::GetDpiForWindow, WindowsAndMessaging::*},
+    },
+    core::*,
+};
+
+pub fn wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain([0]).collect()
+}
+
+pub fn wide_path(p: &Path) -> Vec<u16> {
+    p.as_os_str().encode_wide().chain([0]).collect()
+}
+
+pub fn inst() -> HINSTANCE {
+    unsafe { GetModuleHandleW(None).map(|m| HINSTANCE(m.0)).unwrap_or_default() }
+}
+
+pub fn scale(h: HWND, v: i32) -> i32 {
+    v * unsafe { GetDpiForWindow(h) }.max(96) as i32 / 96
+}
+
+pub fn register(class: PCWSTR, proc: WNDPROC) {
+    let wc = WNDCLASSW {
+        style: CS_DBLCLKS,
+        lpfnWndProc: proc,
+        hInstance: inst(),
+        lpszClassName: class,
+        hCursor: unsafe { LoadCursorW(None, IDC_ARROW).unwrap_or_default() },
+        ..Default::default()
+    };
+    unsafe { RegisterClassW(&wc) };
+}
+
+pub fn msgbox(h: Option<HWND>, text: &str, style: MESSAGEBOX_STYLE, rtl: bool) -> MESSAGEBOX_RESULT {
+    let flags = if rtl { style | MB_RTLREADING | MB_RIGHT } else { style };
+    unsafe { MessageBoxW(h, PCWSTR(wide(text).as_ptr()), w!("Rust Desktop Icons"), flags | MB_SETFOREGROUND) }
+}
+
+pub fn menu() -> HMENU {
+    unsafe { CreatePopupMenu().unwrap_or_default() }
+}
+
+pub fn item(m: HMENU, id: usize, text: &str, checked: bool) {
+    let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
+    unsafe { AppendMenuW(m, flags, id, PCWSTR(wide(text).as_ptr())).ok() };
+}
+
+pub fn submenu(m: HMENU, text: &str, child: HMENU) {
+    unsafe { AppendMenuW(m, MF_POPUP, child.0 as usize, PCWSTR(wide(text).as_ptr())).ok() };
+}
+
+pub fn separator(m: HMENU) {
+    unsafe { AppendMenuW(m, MF_SEPARATOR, 0, PCWSTR::null()).ok() };
+}
+
+pub fn popup(h: HWND, m: HMENU, rtl: bool) -> usize {
+    unsafe {
+        let mut p = POINT::default();
+        let _ = GetCursorPos(&mut p);
+        let _ = SetForegroundWindow(h);
+        let align = if rtl { TPM_LAYOUTRTL | TPM_RIGHTALIGN } else { TPM_LEFTALIGN };
+        let r = TrackPopupMenu(m, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON | align, p.x, p.y, None, h, None);
+        let _ = DestroyMenu(m);
+        let _ = PostMessageW(Some(h), WM_NULL, WPARAM(0), LPARAM(0));
+        r.0 as usize
+    }
+}

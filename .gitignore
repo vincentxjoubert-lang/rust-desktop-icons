@@ -1,0 +1,7 @@
+/target
+*.msi
+.env
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+Thumbs.db

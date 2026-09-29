@@ -1,0 +1,35 @@
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: write
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install stable --profile minimal -c clippy && rustup default stable
+      - name: Check version
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match Cargo.toml version $v" }
+          "VERSION=$v" >> $env:GITHUB_ENV
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      - run: dotnet tool install --global wix --version 5.0.2
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $msi = "rust-desktop-icons-$env:VERSION-x64.msi"
+          wix build installer/main.wxs -d Version=$env:VERSION -arch x64 -o $msi
+          $hash = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLower()
+          "$hash  $msi" | Out-File "$msi.sha256" -Encoding ascii -NoNewline
+          "MSI=$msi" >> $env:GITHUB_ENV
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" $env:MSI "$env:MSI.sha256" --title "Rust Desktop Icons ${{ github.ref_name }}" --generate-notes
