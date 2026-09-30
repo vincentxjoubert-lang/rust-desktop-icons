@@ -74,6 +74,9 @@ pub fn create(f: &Fence) -> Option<HWND> {
         let owner = if top() { None } else { FindWindowW(w!("Progman"), None).ok() };
         let ex = WS_EX_TOOLWINDOW | WS_EX_ACCEPTFILES | WS_EX_LAYERED;
         let h = CreateWindowExW(ex, CLASS, PCWSTR::null(), WS_POPUP, x, y, f.w, f.h, owner, None, Some(inst()), None).ok()?;
+        if f.rolled {
+            let _ = SetWindowPos(h, None, 0, 0, f.w, scale(h, TITLE), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         if top() {
             let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
@@ -138,7 +141,7 @@ fn rename(h: HWND) {
         let _ = ClientToScreen(h, &mut p);
         let style = WS_POPUP | WS_VISIBLE | WS_BORDER | WINDOW_STYLE((ES_CENTER | ES_AUTOHSCROLL) as u32);
         let Ok(e) = CreateWindowExW(
-            WS_EX_TOOLWINDOW,
+            WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
             w!("EDIT"),
             PCWSTR(wide(&title).as_ptr()),
             style,
@@ -243,6 +246,9 @@ fn context(h: HWND) {
         let _ = GetCursorPos(&mut p);
         let _ = ScreenToClient(h, &mut p);
     }
+    if p.y < scale(h, TITLE) {
+        return rename(h);
+    }
     let target = item_at(h, (p.x, p.y));
     let Some(f) = fence_of(h) else { return };
     let Some((m, rtl)) = with(|a| {
@@ -306,9 +312,12 @@ fn drop_files(h: HWND, d: HDROP) {
         return;
     };
     let (dir, fences) = (store::fence_dir(id), store::root().join("fences"));
-    for p in paths.iter().filter(|p| p.parent().is_some_and(|q| q == desk || q.parent() == Some(fences.as_path())) && !p.starts_with(&dir))
-    {
-        let _ = store::move_into(p, &dir);
+    for p in paths.iter().filter(|p| !p.starts_with(&dir)) {
+        let _ = if p.parent().is_some_and(|q| q == desk || q.parent() == Some(fences.as_path())) {
+            store::move_into(p, &dir)
+        } else {
+            shell::link_into(p, &dir).map_err(std::io::Error::other)
+        };
     }
     with(|a| a.views.iter().map(|v| v.hwnd).collect::<Vec<_>>()).into_iter().flatten().for_each(reload);
 }
@@ -433,7 +442,10 @@ pub fn render(h: HWND) {
         #[cfg(debug_assertions)]
         if let Some(p) = std::env::var_os("RDI_DUMP") {
             let head = [w.to_le_bytes(), ht.to_le_bytes()].concat();
-            let _ = fs::write(p, [head, canvas.px().iter().flat_map(|v| v.to_le_bytes()).collect()].concat());
+            let _ = fs::write(
+                PathBuf::from(p).join(format!("{id}.bin")),
+                [head, canvas.px().iter().flat_map(|v| v.to_le_bytes()).collect()].concat(),
+            );
         }
         SelectObject(dc, canvas.bmp.into());
         let blend = BLENDFUNCTION { BlendOp: AC_SRC_OVER as u8, BlendFlags: 0, SourceConstantAlpha: 255, AlphaFormat: AC_SRC_ALPHA as u8 };

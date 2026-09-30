@@ -8,7 +8,10 @@ use windows::{
         Foundation::HWND,
         Globalization::GetUserDefaultLocaleName,
         Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES,
-        System::{Com::CoTaskMemFree, Registry::*},
+        System::{
+            Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, CoTaskMemFree, IPersistFile},
+            Registry::*,
+        },
         UI::{
             Controls::{IImageList, ILD_TRANSPARENT},
             Shell::{Common::ITEMIDLIST, *},
@@ -63,6 +66,26 @@ pub fn set_autostart(on: bool) {
     }
 }
 
+pub fn link_into(target: &Path, dir: &Path) -> Result<PathBuf> {
+    let ext = target.extension().map(|e| e.to_ascii_lowercase());
+    if ext.as_ref().is_some_and(|e| e == "lnk" || e == "url") {
+        let dst = crate::store::unique(dir, target.file_name().unwrap_or_default());
+        std::fs::copy(target, &dst)?;
+        return Ok(dst);
+    }
+    let name = format!("{}.lnk", target.file_name().unwrap_or_default().to_string_lossy());
+    let dst = crate::store::unique(dir, name.as_ref());
+    unsafe {
+        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
+        link.SetPath(PCWSTR(wide_path(target).as_ptr()))?;
+        if let Some(parent) = target.parent() {
+            link.SetWorkingDirectory(PCWSTR(wide_path(parent).as_ptr()))?;
+        }
+        link.cast::<IPersistFile>()?.Save(PCWSTR(wide_path(&dst).as_ptr()), true)?;
+    }
+    Ok(dst)
+}
+
 pub struct Watch(u32, *mut ITEMIDLIST);
 
 impl Watch {
@@ -90,5 +113,30 @@ impl Drop for Watch {
             let _ = SHChangeNotifyDeregister(self.0);
             ILFree(Some(self.1));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
+
+    #[test]
+    fn links_and_copies_shortcuts() {
+        let d = env::temp_dir().join(format!("rdi-test-lnk-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        let target = d.join("app.txt");
+        fs::write(&target, "x").unwrap();
+        let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        let out = d.join("out");
+        fs::create_dir_all(&out).unwrap();
+        let lnk = link_into(&target, &out).unwrap();
+        assert_eq!(lnk, out.join("app.txt.lnk"));
+        assert!(fs::metadata(&lnk).unwrap().len() > 0);
+        assert_eq!(link_into(&lnk, &out).unwrap(), out.join("app.txt (2).lnk"));
+        assert!(target.exists());
+        fs::remove_dir_all(d).unwrap();
     }
 }
