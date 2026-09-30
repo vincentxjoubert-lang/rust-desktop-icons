@@ -94,7 +94,10 @@ pub fn msgbox(h: Option<HWND>, text: &str, style: MESSAGEBOX_STYLE, rtl: bool) -
 }
 
 pub fn menu() -> HMENU {
-    unsafe { CreatePopupMenu().unwrap_or_default() }
+    let m = unsafe { CreatePopupMenu().unwrap_or_default() };
+    let info = MENUINFO { cbSize: size_of::<MENUINFO>() as u32, fMask: MIM_STYLE, dwStyle: MNS_CHECKORBMP, ..Default::default() };
+    let _ = unsafe { SetMenuInfo(m, &info) };
+    m
 }
 
 pub fn item(m: HMENU, id: usize, text: &str, checked: bool) {
