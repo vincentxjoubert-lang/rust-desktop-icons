@@ -1,4 +1,4 @@
-use super::{TITLE, WM_CHANGED, actions, fence_of, reload, to_client, update};
+use super::{TITLE, WM_CHANGED, actions, fence_of, layout, reload, to_client, update};
 use crate::{
     app::with,
     domain::{Tab, grid},
@@ -10,10 +10,10 @@ use std::path::PathBuf;
 use windows::Win32::{Foundation::*, UI::Input::KeyboardAndMouse::DragDetect};
 
 pub fn bind(h: HWND) {
-    let Some(dir) = with(|a| a.fence_of(h).map(|f| store::tab_dir(f.active()))).flatten() else { return };
-    with(|a| a.view(h).map(|v| v.watch = None));
-    let watch = shell::Watch::new(h, &dir, WM_CHANGED);
-    with(|a| a.view(h).map(|v| (v.watch, v.scroll) = (watch, 0)));
+    let Some(dirs) = with(|a| a.fence_of(h).map(|f| f.tabs.iter().map(store::tab_dir).collect::<Vec<_>>())).flatten() else { return };
+    with(|a| a.view(h).map(|v| v.watches.clear()));
+    let watches = dirs.iter().filter_map(|d| shell::Watch::new(h, d, WM_CHANGED)).collect();
+    with(|a| a.view(h).map(|v| (v.watches, v.scroll) = (watches, 0)));
     reload(h);
 }
 
@@ -31,10 +31,35 @@ pub(super) fn click(h: HWND, screen: (i32, i32)) -> bool {
     true
 }
 
-fn select(h: HWND, i: usize) {
-    if fence_of(h).is_some_and(|f| f.tab != i) {
-        update(h, |f| f.tab = i);
-        bind(h);
+pub(super) fn hover(h: HWND, screen: (i32, i32)) {
+    if let Some(i) = at(h, to_client(h, screen)) {
+        select(h, i);
+    }
+}
+
+pub(super) fn select(h: HWND, i: usize) {
+    let hit = with(|a| {
+        let f = a.fence_of(h)?;
+        if f.tab == i || i >= f.tabs.len() {
+            return Some(true);
+        }
+        let (old, new) = (f.active().id, f.tabs[i].id);
+        f.tab = i;
+        a.save();
+        let v = a.view(h)?;
+        let items = std::mem::take(&mut v.items);
+        v.cache.push((old, items));
+        v.scroll = 0;
+        let found = v.cache.iter().position(|(id, _)| *id == new).map(|k| v.cache.remove(k).1);
+        let hit = found.is_some();
+        v.items = found.unwrap_or_default();
+        Some(hit)
+    })
+    .flatten();
+    match hit {
+        Some(true) => layout::apply(h),
+        Some(false) => reload(h),
+        None => {}
     }
 }
 

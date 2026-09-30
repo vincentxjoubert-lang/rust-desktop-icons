@@ -42,7 +42,8 @@ pub struct View {
     pub unroll: f32,
     pub glow: f32,
     pub tick: Option<std::time::Instant>,
-    pub watch: Option<shell::Watch>,
+    pub watches: Vec<shell::Watch>,
+    pub cache: Vec<(u64, Vec<Item>)>,
 }
 
 impl View {
@@ -61,7 +62,8 @@ impl View {
             unroll,
             glow,
             tick: None,
-            watch: None,
+            watches: vec![],
+            cache: vec![],
         }
     }
 }

@@ -4,12 +4,13 @@ use crate::{
     shell, store,
     win::*,
 };
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use windows::Win32::Foundation::HWND;
 
-pub fn reload(h: HWND) {
-    let Some(dir) = with(|a| a.fence_of(h).map(|f| store::tab_dir(f.active()))).flatten() else { return };
-    let px = metrics(h).1;
+fn load(dir: &Path, px: i32) -> Vec<Item> {
     let mut paths: Vec<PathBuf> = fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -18,14 +19,21 @@ pub fn reload(h: HWND) {
         .filter(|p| !p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("desktop.ini")))
         .collect();
     paths.sort_by_key(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase()));
-    let items: Vec<Item> = paths
+    paths
         .into_iter()
         .map(|path| {
             let (icon, name) = shell::info(&path, px);
             Item { path, name, icon }
         })
-        .collect();
-    with(|a| a.view(h).map(|v| v.items = items));
+        .collect()
+}
+
+pub fn reload(h: HWND) {
+    let Some(f) = with(|a| a.fence_of(h).cloned()).flatten() else { return };
+    let px = metrics(h).1;
+    let mut all: Vec<(u64, Vec<Item>)> = f.tabs.iter().map(|t| (t.id, load(&store::tab_dir(t), px))).collect();
+    let active = all.iter().position(|(id, _)| *id == f.active().id).map(|i| all.remove(i).1).unwrap_or_default();
+    with(|a| a.view(h).map(|v| (v.items, v.cache) = (active, all)));
     render(h);
 }
 

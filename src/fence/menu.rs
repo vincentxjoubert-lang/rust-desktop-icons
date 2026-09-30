@@ -11,8 +11,7 @@ use windows::Win32::Foundation::HWND;
 pub(super) fn context(h: HWND) {
     let p = cursor(h);
     if let Some(i) = tabs::at(h, p) {
-        with(|a| a.fence_of(h).map(|f| f.tab = i));
-        tabs::bind(h);
+        tabs::select(h, i);
     }
     let target = items::item_at(h, p);
     let Some(f) = fence_of(h) else { return };

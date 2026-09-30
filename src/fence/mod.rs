@@ -140,7 +140,10 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         }
         WM_NCLBUTTONDOWN if wp.0 as u32 == HTCAPTION && tabs::click(h, xy(lp)) => {}
         WM_NCLBUTTONDBLCLK if wp.0 as u32 == HTCAPTION => peek::toggle(h),
-        WM_NCMOUSEMOVE => peek::enter(h),
+        WM_NCMOUSEMOVE => {
+            peek::enter(h);
+            tabs::hover(h, xy(lp));
+        }
         WM_NCRBUTTONUP if wp.0 as u32 == HTCAPTION => menu::context(h),
         WM_LBUTTONDBLCLK => items::item_at(h, xy(lp)).iter().for_each(|p| shell::open(p)),
         WM_CONTEXTMENU => menu::context(h),

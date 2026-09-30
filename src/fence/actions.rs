@@ -37,7 +37,7 @@ pub(super) fn delete(h: HWND) {
     if !confirm(h, T::ConfirmDelete) {
         return;
     }
-    with(|a| a.view(h).map(|v| v.watch = None));
+    with(|a| a.view(h).map(|v| v.watches.clear()));
     let kept = f.tabs.iter().filter(|t| t.portal.is_none()).map(store::tab_dir).filter(|d| !evacuate(d)).count();
     if kept > 0 {
         return super::bind(h);
