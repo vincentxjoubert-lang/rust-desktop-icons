@@ -2,8 +2,12 @@ use std::{os::windows::ffi::OsStrExt, path::Path};
 use windows::{
     Win32::{
         Foundation::*,
+        Graphics::Dwm::{DWM_TIMING_INFO, DwmGetCompositionTimingInfo},
         Graphics::Gdi::{GetMonitorInfoW, HBITMAP, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect},
-        System::LibraryLoader::GetModuleHandleW,
+        System::{
+            LibraryLoader::GetModuleHandleW,
+            Performance::{QueryPerformanceCounter, QueryPerformanceFrequency},
+        },
         UI::{
             Controls::Dialogs::*,
             HiDpi::{GetDpiForSystem, GetDpiForWindow},
@@ -67,6 +71,24 @@ pub fn cursor_pos() -> (i32, i32) {
 
 pub fn key_down(k: VIRTUAL_KEY) -> bool {
     (unsafe { GetKeyState(k.0 as i32) }) < 0
+}
+
+fn qpc_ms(ticks: i64) -> f64 {
+    let mut freq = 0i64;
+    let _ = unsafe { QueryPerformanceFrequency(&mut freq) };
+    ticks as f64 * 1000. / freq.max(1) as f64
+}
+
+pub fn now_ms() -> f64 {
+    let mut t = 0i64;
+    let _ = unsafe { QueryPerformanceCounter(&mut t) };
+    qpc_ms(t)
+}
+
+pub fn next_vblank_ms() -> Option<f64> {
+    let mut info = DWM_TIMING_INFO { cbSize: size_of::<DWM_TIMING_INFO>() as u32, ..Default::default() };
+    unsafe { DwmGetCompositionTimingInfo(HWND::default(), &mut info) }.ok()?;
+    (info.qpcRefreshPeriod > 0).then(|| qpc_ms((info.qpcVBlank + info.qpcRefreshPeriod) as i64))
 }
 
 pub fn sys_scale(v: i32) -> i32 {

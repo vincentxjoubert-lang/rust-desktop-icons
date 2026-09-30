@@ -90,10 +90,14 @@ impl Frame {
         }
     }
 
-    pub fn present(&self, h: HWND, (x, y): (i32, i32), alpha: u8) {
+    pub fn present(&self, h: HWND, pos: (i32, i32), alpha: u8) {
+        self.present_top(h, pos, self.h, alpha);
+    }
+
+    pub fn present_top(&self, h: HWND, (x, y): (i32, i32), height: i32, alpha: u8) {
         let blend =
             BLENDFUNCTION { BlendOp: AC_SRC_OVER as u8, BlendFlags: 0, SourceConstantAlpha: alpha, AlphaFormat: AC_SRC_ALPHA as u8 };
-        let (pos, size) = (POINT { x, y }, SIZE { cx: self.w, cy: self.h });
+        let (pos, size) = (POINT { x, y }, SIZE { cx: self.w, cy: height.clamp(1, self.h) });
         unsafe {
             SelectObject(self.dc, self.canvas.bmp.into());
             let _ = UpdateLayeredWindow(

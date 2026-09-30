@@ -118,7 +118,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         WM_INITMENUPOPUP | WM_DRAWITEM | WM_MEASUREITEM | WM_MENUCHAR => {
             return native::forward(h, m, wp, lp).unwrap_or_else(|| unsafe { DefWindowProcW(h, m, wp, lp) });
         }
-        WM_SIZE => render(h),
+        WM_SIZE if !anim::animating(h) => render(h),
         WM_WINDOWPOSCHANGING => {
             let p = unsafe { &mut *(lp.0 as *mut WINDOWPOS) };
             if (p.flags & SWP_NOZORDER).0 == 0 && !top() {

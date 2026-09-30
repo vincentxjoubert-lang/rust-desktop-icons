@@ -36,14 +36,27 @@ impl Canvas<'_> {
     pub fn rrect(&mut self, rect: (i32, i32, i32, i32), r: f32, (top, bottom): (u32, u32), rows: (i32, i32), stroke: bool) {
         let f = (rect.0 as f32, rect.1 as f32, rect.2 as f32, rect.3 as f32);
         let inner = (f.0 + 1., f.1 + 1., f.2 - 1., f.3 - 1.);
+        let (x0, x1) = (rect.0.max(0), rect.2.min(self.w));
         for y in rows.0.max(rect.1).max(0)..rows.1.min(rect.3).min(self.h) {
             let color = lerp(top, bottom, ((y - rect.1) * 255 / (rect.3 - rect.1).max(1)) as u32);
-            for x in rect.0.max(0)..rect.2.min(self.w) {
-                let p = (x as f32 + 0.5, y as f32 + 0.5);
+            let cy = y as f32 + 0.5;
+            let straight = cy >= f.1 + r + 1. && cy <= f.3 - r - 1.;
+            let a = (rect.0 + 2).clamp(x0, x1.max(x0));
+            let b = (rect.2 - 2).clamp(a, x1.max(a));
+            let row = (y * self.w) as usize;
+            let (left, right) = if straight { (x0..a, b..x1) } else { (x0..x1, x1..x1) };
+            for x in left.chain(right) {
+                let p = (x as f32 + 0.5, cy);
                 let c = coverage(p, f, r) - if stroke { coverage(p, inner, (r - 1.).max(0.)) } else { 0. };
                 if c > 0. {
-                    let i = (y * self.w + x) as usize;
+                    let i = row + x as usize;
                     self.px[i] = over(self.px[i], fade(color, (c * 255.) as u32));
+                }
+            }
+            if straight && !stroke {
+                for x in a..b {
+                    let i = row + x as usize;
+                    self.px[i] = over(self.px[i], color);
                 }
             }
         }
@@ -118,8 +131,7 @@ pub fn tint(px: &mut [u32], color: u32) {
     }
 }
 
-pub fn blur(src: &[u32], w: i32, h: i32, r: i32) -> Vec<u32> {
-    let (w, h, r) = (w.max(1) as usize, h.max(1) as usize, r.max(0) as usize);
+fn blur_all(src: &[u32], w: usize, h: usize, r: usize) -> Vec<u32> {
     let mut a: Vec<u32> = src.iter().map(|p| p & 0xFF).collect();
     let mut b = vec![0; a.len()];
     for _ in 0..2 {
@@ -127,6 +139,16 @@ pub fn blur(src: &[u32], w: i32, h: i32, r: i32) -> Vec<u32> {
         pass(&b, &mut a, (w, h, 1, w), r);
     }
     a
+}
+
+pub fn blur(src: &[u32], w: i32, h: i32, r: i32) -> Vec<u32> {
+    let (w, h, r) = (w.max(1) as usize, h.max(1) as usize, r.max(0) as usize);
+    let used = |y: &usize| src[y * w..(y + 1) * w].iter().any(|p| p & 0xFF != 0);
+    let mut out = vec![0; w * h];
+    let (Some(first), Some(last)) = ((0..h).find(used), (0..h).rev().find(used)) else { return out };
+    let (y0, y1) = (first.saturating_sub(2 * r), (last + 1 + 2 * r).min(h));
+    out[y0 * w..y1 * w].copy_from_slice(&blur_all(&src[y0 * w..y1 * w], w, y1 - y0, r));
+    out
 }
 
 #[cfg(test)]
@@ -148,6 +170,43 @@ mod tests {
         let mut px = [0x00_FF_00_00, 0x00_30_60_90, 0];
         gray(&mut px);
         assert_eq!(px, [0x5555_5555, 0x6060_6060, 0]);
+    }
+
+    #[test]
+    fn banded_blur_matches_full() {
+        let (w, h) = (9, 30);
+        let mut px = vec![0u32; w * h];
+        px[12 * w + 4] = 0xFF;
+        px[14 * w + 1] = 0x80;
+        assert_eq!(blur(&px, w as i32, h as i32, 2), blur_all(&px, w, h, 2));
+        assert_eq!(blur(&vec![0; w * h], w as i32, h as i32, 2), vec![0; w * h]);
+    }
+
+    #[test]
+    fn fast_rrect_matches_reference() {
+        let reference = |rect: (i32, i32, i32, i32), r: f32, stroke: bool| {
+            let mut px = vec![0u32; 40 * 40];
+            let f = (rect.0 as f32, rect.1 as f32, rect.2 as f32, rect.3 as f32);
+            let inner = (f.0 + 1., f.1 + 1., f.2 - 1., f.3 - 1.);
+            for y in rect.1.max(0)..rect.3.min(40) {
+                let color = lerp(0xFF_20_40_60, 0xFF_20_40_60, ((y - rect.1) * 255 / (rect.3 - rect.1).max(1)) as u32);
+                for x in rect.0.max(0)..rect.2.min(40) {
+                    let p = (x as f32 + 0.5, y as f32 + 0.5);
+                    let c = coverage(p, f, r) - if stroke { coverage(p, inner, (r - 1.).max(0.)) } else { 0. };
+                    if c > 0. {
+                        px[(y * 40 + x) as usize] = over(0, fade(color, (c * 255.) as u32));
+                    }
+                }
+            }
+            px
+        };
+        for (rect, r) in [((0, 0, 40, 40), 6.), ((3, 5, 30, 38), 8.), ((-4, -2, 44, 20), 0.), ((10, 10, 13, 13), 2.)] {
+            for stroke in [false, true] {
+                let mut px = vec![0u32; 40 * 40];
+                Canvas { px: &mut px, w: 40, h: 40 }.rrect(rect, r, flat(0xFF_20_40_60), (0, 40), stroke);
+                assert_eq!(px, reference(rect, r, stroke), "{rect:?} r={r} stroke={stroke}");
+            }
+        }
     }
 
     #[test]

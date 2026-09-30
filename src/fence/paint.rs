@@ -11,19 +11,22 @@ use windows::Win32::Foundation::*;
 
 pub fn render(h: HWND) {
     let wr = window_rect(h);
-    let (w, ht) = (wr.right - wr.left, wr.bottom - wr.top);
+    if let Some((frame, alpha)) = draw(h, (wr.right - wr.left, wr.bottom - wr.top), false) {
+        frame.present(h, (wr.left, wr.top), alpha);
+    }
+}
+
+pub(super) fn draw(h: HWND, (w, ht): (i32, i32), open: bool) -> Option<(Frame, u8)> {
     let s = |v| scale(h, v);
     let ((cell, icon), t, top_gap) = (metrics(h), s(TITLE), s(4));
-    let (Some(mut frame), Some(mut icons)) = (Frame::new(w, ht), Dib::new(w, ht)) else {
-        return;
-    };
+    let (mut frame, mut icons) = (Frame::new(w, ht)?, Dib::new(w, ht)?);
     let full = fence_of(h).map_or(ht, |f| layout::full(h, &f));
     let alpha = with(|a| {
         let (ft, fi) = (title_font(a, h), label_font(a, h));
         let f = a.fence_of(h)?.clone();
         let v = a.view(h)?;
-        let rolled = v.unroll == 0.;
-        let body_h = if v.unroll < 1. { full } else { ht };
+        let rolled = !open && v.unroll == 0.;
+        let body_h = if !open && v.unroll < 1. { full } else { ht };
         header::text(&frame, ft, &f, t, s(8));
         let max = if rolled { 0 } else { grid::max_scroll(v.items.len(), w, body_h - t - top_gap, cell) };
         v.scroll = v.scroll.clamp(0, max);
@@ -83,7 +86,5 @@ pub fn render(h: HWND) {
         frame.dump(&f.id.to_string());
         Some(anim::opacity(v.glow))
     });
-    if let Some(alpha) = alpha.flatten() {
-        frame.present(h, (wr.left, wr.top), alpha);
-    }
+    alpha.flatten().map(|a| (frame, a))
 }

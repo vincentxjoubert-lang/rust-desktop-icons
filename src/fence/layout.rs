@@ -21,8 +21,12 @@ pub(super) fn full(h: HWND, f: &Fence) -> i32 {
     grid::fit(n, f.w, metrics(h).0, scale(h, TITLE + 4 + 8), (scale(h, Fence::MIN.1), floor))
 }
 
+pub(super) fn height(h: HWND, f: &Fence) -> i32 {
+    anim::height(scale(h, TITLE), full(h, f), progress(h, f))
+}
+
 pub(super) fn resize(h: HWND, f: &Fence) {
-    let height = anim::height(scale(h, TITLE), full(h, f), progress(h, f));
+    let height = height(h, f);
     let _ = unsafe { SetWindowPos(h, None, 0, 0, f.w, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) };
 }
 

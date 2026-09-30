@@ -88,6 +88,7 @@ pub(super) fn receive(h: HWND, lp: LPARAM) {
     with(|a| {
         let v = a.view(h)?;
         for (id, g, items) in results {
+            v.frame = None;
             if !v.gens.iter().any(|&(t, cur)| t == id && cur == g) {
                 continue;
             }

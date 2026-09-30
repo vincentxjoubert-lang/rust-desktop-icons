@@ -52,7 +52,7 @@ pub(super) fn select(h: HWND, i: usize) {
     let hit = with(|a| {
         let f = a.fence_of(h)?;
         if f.tab == i || i >= f.tabs.len() {
-            return Some(true);
+            return None;
         }
         let (old, new) = (f.active().id, f.tabs[i].id);
         f.tab = i;
