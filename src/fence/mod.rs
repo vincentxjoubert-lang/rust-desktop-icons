@@ -49,6 +49,7 @@ const TABS: usize = 64;
 const RELOAD: usize = 1;
 const PEEK: usize = 2;
 const ANIM: usize = 3;
+const PREPARE: usize = 5;
 
 fn title_font(a: &mut App, h: HWND) -> HFONT {
     a.font(scale(h, 14), FW_SEMIBOLD.0)
@@ -118,7 +119,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         WM_INITMENUPOPUP | WM_DRAWITEM | WM_MEASUREITEM | WM_MENUCHAR => {
             return native::forward(h, m, wp, lp).unwrap_or_else(|| unsafe { DefWindowProcW(h, m, wp, lp) });
         }
-        WM_SIZE if !anim::animating(h) => render(h),
+        WM_SIZE if !layout::sizing(h) => render(h),
         WM_WINDOWPOSCHANGING => {
             let p = unsafe { &mut *(lp.0 as *mut WINDOWPOS) };
             if (p.flags & SWP_NOZORDER).0 == 0 && !top() {
@@ -188,6 +189,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         }
         WM_TIMER if wp.0 == PEEK => peek::check(h),
         WM_TIMER if wp.0 == ANIM => anim::tick(h),
+        WM_TIMER if wp.0 == PREPARE => paint::prepare(h),
         WM_COMMAND if (wp.0 >> 16) as u32 == EN_KILLFOCUS => edit::finish(h, true),
         _ => return unsafe { DefWindowProcW(h, m, wp, lp) },
     }

@@ -1,18 +1,45 @@
-use super::{TITLE, cell, fence_of, header, label_font, layout, metrics, title_font};
+use super::{PREPARE, TITLE, anim, cell, fence_of, header, label_font, layout, metrics, title_font};
 use crate::{
     app::with,
-    domain::{anim, color, grid},
+    domain::{self, color, grid},
     layered::{ACCENT, Dib, Frame, WHITE},
     render::{flat, opaque_if_flat, premul, tint},
     shell,
     win::*,
 };
-use windows::Win32::Foundation::*;
+use windows::Win32::{
+    Foundation::*,
+    UI::WindowsAndMessaging::{KillTimer, SetTimer},
+};
+
+fn store(h: HWND, frame: Option<Frame>) {
+    with(|a| a.view(h).map(|v| v.frame = frame));
+}
 
 pub fn render(h: HWND) {
+    if anim::animating(h) {
+        return store(h, None);
+    }
     let wr = window_rect(h);
-    if let Some((frame, alpha)) = draw(h, (wr.right - wr.left, wr.bottom - wr.top), false) {
-        frame.present(h, (wr.left, wr.top), alpha);
+    let size = (wr.right - wr.left, wr.bottom - wr.top);
+    let Some((frame, alpha)) = draw(h, size, false) else { return };
+    frame.present(h, (wr.left, wr.top), alpha);
+    let open = with(|a| a.view(h).map(|v| v.unroll == 1.)).flatten() == Some(true);
+    if open && fence_of(h).is_some_and(|f| layout::full(h, &f) == size.1) {
+        store(h, Some(frame));
+    } else {
+        store(h, None);
+        unsafe { SetTimer(Some(h), PREPARE, 150, None) };
+    }
+}
+
+pub(super) fn prepare(h: HWND) {
+    let _ = unsafe { KillTimer(Some(h), PREPARE) };
+    if anim::animating(h) || with(|a| a.view(h).map(|v| v.frame.is_some())).flatten() != Some(false) {
+        return;
+    }
+    if let Some(f) = fence_of(h) {
+        store(h, draw(h, (f.w, layout::full(h, &f)), true).map(|(fr, _)| fr));
     }
 }
 
@@ -84,7 +111,7 @@ pub(super) fn draw(h: HWND, (w, ht): (i32, i32), open: bool) -> Option<(Frame, u
         frame.canvas().rrect(full, rad, flat(premul(WHITE, 48)), rows, true);
         #[cfg(debug_assertions)]
         frame.dump(&f.id.to_string());
-        Some(anim::opacity(v.glow))
+        Some(domain::anim::opacity(v.glow))
     });
     alpha.flatten().map(|a| (frame, a))
 }

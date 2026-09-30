@@ -25,9 +25,21 @@ pub(super) fn height(h: HWND, f: &Fence) -> i32 {
     anim::height(scale(h, TITLE), full(h, f), progress(h, f))
 }
 
+pub(super) fn self_sized(h: HWND, f: impl FnOnce()) {
+    with(|a| a.view(h).map(|v| v.sizing = true));
+    f();
+    with(|a| a.view(h).map(|v| v.sizing = false));
+}
+
+pub(super) fn sizing(h: HWND) -> bool {
+    with(|a| a.view(h).map(|v| v.sizing)).flatten() == Some(true)
+}
+
 pub(super) fn resize(h: HWND, f: &Fence) {
     let height = height(h, f);
-    let _ = unsafe { SetWindowPos(h, None, 0, 0, f.w, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) };
+    self_sized(h, || {
+        let _ = unsafe { SetWindowPos(h, None, 0, 0, f.w, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) };
+    });
 }
 
 pub(super) fn apply(h: HWND) {

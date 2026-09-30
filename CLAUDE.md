@@ -56,7 +56,8 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Present layered windows outside `app::with` (UpdateLayeredWindow re-enters the window proc).
 - Roll/fade animation never re-renders per frame: `paint::draw(.., open=true)` once into `View.frame`, then
   `Frame::present_top` crops it; ticks are paced on the next DWM vblank (`win::next_vblank_ms`), WM_SIZE skips render
-  while animating. `Canvas::rrect` fast-paths straight rows and `blur` only processes rows with text (tests prove equality).
+  while animating (`View.sizing` marks self-caused resizes). `render` keeps the open frame as the cache when fully
+  unrolled, and a `PREPARE` timer rebuilds it 150 ms after it is invalidated, so animations never start with a full draw. `Canvas::rrect` fast-paths straight rows and `blur` only processes rows with text (tests prove equality).
 
 ## Gotchas
 - Debug builds use a separate single-instance mutex, so they run beside the installed app. For visual checks, run the debug exe

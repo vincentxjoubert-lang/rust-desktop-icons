@@ -36,24 +36,24 @@ pub(super) fn tick(h: HWND) {
         v.glow = anim::advance(v.glow, glow, dt, ms);
         let done = v.unroll == unroll && v.glow == glow;
         v.tick = (!done).then_some(t);
-        if done {
-            v.frame = None;
-        }
         Some((f, done, anim::opacity(v.glow)))
     })
     .flatten() else {
         return;
     };
+    let full = (f.w, layout::full(h, &f));
+    let height = layout::height(h, &f);
     if done {
         let _ = unsafe { KillTimer(Some(h), ANIM) };
+    }
+    let cached = with(|a| a.view(h)?.frame.take()).flatten().filter(|fr| (fr.w, fr.h) == full);
+    if done && height != full.1 {
         return layout::apply(h);
     }
-    let full = (f.w, layout::full(h, &f));
-    let cached = with(|a| a.view(h)?.frame.take()).flatten();
-    let Some(frame) = cached.filter(|fr| (fr.w, fr.h) == full).or_else(|| paint::draw(h, full, true).map(|(fr, _)| fr)) else {
+    let Some(frame) = cached.or_else(|| paint::draw(h, full, true).map(|(fr, _)| fr)) else {
         return;
     };
     let r = window_rect(h);
-    frame.present_top(h, (r.left, r.top), layout::height(h, &f), alpha);
+    layout::self_sized(h, || frame.present_top(h, (r.left, r.top), height, alpha));
     with(|a| a.view(h).map(|v| v.frame = Some(frame)));
 }
