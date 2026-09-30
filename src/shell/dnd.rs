@@ -1,4 +1,3 @@
-use crate::win::wide_path;
 use std::path::PathBuf;
 use windows::{
     Win32::{
@@ -8,9 +7,9 @@ use windows::{
             Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, CoTaskMemFree, IDataObject},
             Ole::{DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, IDropSource},
         },
-        UI::Shell::{Common::ITEMIDLIST, *},
+        UI::Shell::*,
     },
-    core::{PCWSTR, Result},
+    core::Result,
 };
 
 pub fn pick_folder(h: HWND) -> Option<PathBuf> {
@@ -49,19 +48,9 @@ fn attach(data: &IDataObject, img: DragImage) {
 }
 
 pub fn drag_out(h: HWND, paths: &[PathBuf], image: Option<DragImage>) {
-    unsafe {
-        let pidls: Vec<*mut ITEMIDLIST> =
-            paths.iter().map(|p| ILCreateFromPathW(PCWSTR(wide_path(p).as_ptr()))).filter(|p| !p.is_null()).collect();
-        let raw: Vec<*const ITEMIDLIST> = pidls.iter().map(|p| *p as *const _).collect();
-        let data = SHCreateShellItemArrayFromIDLists(&raw).and_then(|a| a.BindToHandler::<_, IDataObject>(None, &BHID_DataObject));
-        if let Ok(data) = data {
-            if let Some(img) = image {
-                attach(&data, img);
-            }
-            let _ = SHDoDragDrop(Some(h), &data, None::<&IDropSource>, DROPEFFECT_MOVE | DROPEFFECT_COPY | DROPEFFECT_LINK);
-        }
-        for p in pidls {
-            ILFree(Some(p));
-        }
+    let Some(obj) = super::data::object(paths) else { return };
+    if let Some(img) = image {
+        attach(&obj, img);
     }
+    let _ = unsafe { SHDoDragDrop(Some(h), &obj, None::<&IDropSource>, DROPEFFECT_MOVE | DROPEFFECT_COPY | DROPEFFECT_LINK) };
 }

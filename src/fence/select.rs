@@ -14,7 +14,12 @@ fn content(h: HWND, (x, y): (i32, i32)) -> (i32, i32) {
     (x, y - scale(h, TITLE) - scale(h, GAP) + scroll)
 }
 
-fn set(h: HWND, paths: HashSet<PathBuf>) {
+pub(super) fn all(h: HWND) {
+    let paths = with(|a| a.view(h).map(|v| v.items.iter().map(|i| i.path.clone()).collect())).flatten().unwrap_or_default();
+    replace(h, paths);
+}
+
+pub(super) fn replace(h: HWND, paths: HashSet<PathBuf>) {
     with(|a| a.view(h).map(|v| v.selected = paths));
     render(h);
 }
@@ -27,7 +32,7 @@ pub(super) fn selection(h: HWND) -> Vec<PathBuf> {
 
 pub(super) fn focus(h: HWND, p: &PathBuf) -> Vec<PathBuf> {
     if !with(|a| a.view(h).map(|v| v.selected.contains(p))).flatten().unwrap_or(false) {
-        set(h, HashSet::from([p.clone()]));
+        replace(h, HashSet::from([p.clone()]));
     }
     selection(h)
 }
@@ -64,7 +69,7 @@ pub(super) fn down(h: HWND, p: (i32, i32), ctrl: bool) {
     if unsafe { DragDetect(h, pt) }.as_bool() {
         drag(h, &paths, p);
     } else {
-        set(h, HashSet::from([path]));
+        replace(h, HashSet::from([path]));
     }
 }
 

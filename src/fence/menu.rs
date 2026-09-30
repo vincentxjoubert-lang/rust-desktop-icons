@@ -1,4 +1,4 @@
-use super::{actions, arrange, cursor, fence_of, items, peek, reload, select, tabs, title, update};
+use super::{actions, arrange, cursor, edit, fence_of, items, native, peek, screen_cursor, select, tabs, update};
 use crate::{
     app::with,
     domain::{Look, icons},
@@ -14,16 +14,12 @@ pub(super) fn context(h: HWND) {
     if let Some(i) = tabs::at(h, p) {
         tabs::select(h, i);
     }
-    let targets = items::item_at(h, p).map(|t| select::focus(h, &t)).unwrap_or_default();
+    if let Some(t) = items::item_at(h, p) {
+        return native::show(h, &select::focus(h, &t), screen_cursor());
+    }
     let Some(f) = fence_of(h) else { return };
     let Some((m, rtl)) = with(|a| {
         let m = menu();
-        if !targets.is_empty() {
-            a.entry(m, 30, T::Open, false, g::OPEN);
-            a.entry(m, 31, T::Restore, false, g::DESKTOP);
-            a.entry(m, 32, T::Delete, false, g::DELETE);
-            separator(m);
-        }
         let (o, sizes, tint) = (menu(), menu(), menu());
         for (k, &pct) in Look::PERCENTS.iter().enumerate() {
             item(o, 20 + k, &format!("{pct}%"), f.look.alpha == Look::alpha_for(pct));
@@ -61,7 +57,7 @@ pub(super) fn context(h: HWND) {
         return;
     }
     match id {
-        10 => title::rename(h),
+        10 => edit::title(h),
         11 => actions::color(h),
         12 => peek::toggle(h),
         13 => shell::open(&store::tab_dir(f.active())),
@@ -79,17 +75,6 @@ pub(super) fn context(h: HWND) {
         60 => tabs::new_tab(h),
         61 => tabs::new_portal(h),
         62 => tabs::remove(h),
-        30 => targets.iter().for_each(|p| shell::open(p)),
-        31 => {
-            targets.iter().for_each(|p| actions::restore(p));
-            reload(h);
-        }
-        32 => {
-            targets.iter().for_each(|p| {
-                shell::recycle(p);
-            });
-            reload(h);
-        }
         _ => {}
     }
 }

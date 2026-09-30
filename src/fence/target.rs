@@ -1,19 +1,17 @@
 use super::{drop, peek, tabs, to_client};
-use std::path::PathBuf;
+use crate::shell;
 use windows::{
     Win32::{
         Foundation::{HWND, POINT, POINTL},
         System::{
-            Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
+            Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, IDataObject},
             Ole::*,
             SystemServices::MODIFIERKEYS_FLAGS,
         },
-        UI::Shell::{CLSID_DragDropHelper, HDROP, IDropTargetHelper},
+        UI::Shell::{CLSID_DragDropHelper, IDropTargetHelper},
     },
     core::{Ref, Result, implement},
 };
-
-const CF_HDROP: u16 = 15;
 
 #[implement(IDropTarget)]
 struct Target {
@@ -36,20 +34,6 @@ impl Target {
     fn effect(allowed: DROPEFFECT) -> DROPEFFECT {
         [DROPEFFECT_MOVE, DROPEFFECT_COPY, DROPEFFECT_LINK].into_iter().find(|e| allowed.0 & e.0 != 0).unwrap_or(DROPEFFECT_NONE)
     }
-}
-
-fn paths(data: &IDataObject) -> Vec<PathBuf> {
-    let fmt = FORMATETC {
-        cfFormat: CF_HDROP,
-        ptd: std::ptr::null_mut(),
-        dwAspect: DVASPECT_CONTENT.0,
-        lindex: -1,
-        tymed: TYMED_HGLOBAL.0 as u32,
-    };
-    let Ok(mut medium) = (unsafe { data.GetData(&fmt) }) else { return vec![] };
-    let out = drop::paths(HDROP(unsafe { medium.u.hGlobal.0 }));
-    unsafe { ReleaseStgMedium(&mut medium) };
-    out
 }
 
 impl IDropTarget_Impl for Target_Impl {
@@ -86,7 +70,7 @@ impl IDropTarget_Impl for Target_Impl {
         if let (Some(helper), Some(d)) = (&self.helper, data.as_ref()) {
             let _ = unsafe { helper.Drop(d, &POINT { x: pt.x, y: pt.y }, *effect) };
         }
-        let list = data.as_ref().map(paths).unwrap_or_default();
+        let list = data.as_ref().map(shell::files).unwrap_or_default();
         unsafe { *effect = DROPEFFECT_NONE };
         drop::files(self.h(), list, to_client(self.h(), (pt.x, pt.y)));
         Ok(())

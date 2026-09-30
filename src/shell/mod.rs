@@ -1,16 +1,19 @@
+pub mod clip;
+mod data;
 mod dnd;
 mod link;
+pub mod menu;
+mod ops;
 mod reg;
 mod watch;
 
 use crate::win::wide_path;
+pub use data::files;
 pub use dnd::{DragImage, drag_out, pick_folder};
 pub use link::link_into;
+pub use ops::{delete, transfer};
 pub use reg::{NEW_ARG, set_autostart, set_desktop_verb};
-use std::{
-    os::windows::ffi::OsStrExt,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 pub use watch::Watch;
 use windows::{
     Win32::{
@@ -51,12 +54,6 @@ pub fn desktops() -> Vec<PathBuf> {
 
 pub fn same_path(a: &Path, b: &Path) -> bool {
     a.as_os_str().eq_ignore_ascii_case(b.as_os_str()) || a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
-}
-
-pub fn recycle(p: &Path) -> bool {
-    let from: Vec<u16> = p.as_os_str().encode_wide().chain([0, 0]).collect();
-    let mut op = SHFILEOPSTRUCTW { wFunc: FO_DELETE, pFrom: PCWSTR(from.as_ptr()), fFlags: FOF_ALLOWUNDO.0 as u16, ..Default::default() };
-    unsafe { SHFileOperationW(&mut op) == 0 && !op.fAnyOperationsAborted.as_bool() }
 }
 
 fn list(px: i32) -> i32 {

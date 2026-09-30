@@ -9,8 +9,6 @@ pub enum T {
     Roll,
     OpenFolder,
     DeleteFence,
-    Open,
-    Restore,
     Language,
     Autostart,
     AutoUpdate,
@@ -22,7 +20,6 @@ pub enum T {
     Fence,
     UpdateFailed,
     Auto,
-    Delete,
     IconSize,
     DesktopVerb,
     NewTab,
@@ -60,7 +57,7 @@ mod table;
 
 use table::S;
 
-const N: usize = 52;
+const N: usize = 49;
 
 pub const LANGS: [(&str, &str); 25] = [
     ("en", "English"),

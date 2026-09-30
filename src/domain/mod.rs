@@ -4,6 +4,7 @@ pub mod grid;
 pub mod icons;
 pub mod kind;
 mod model;
+pub mod names;
 pub mod order;
 pub mod snap;
 mod zone;

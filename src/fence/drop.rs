@@ -1,18 +1,7 @@
 use super::{arrange, fence_of, items, reload_all, tabs};
 use crate::{shell, store};
 use std::path::{Path, PathBuf};
-use windows::Win32::{Foundation::HWND, UI::Shell::*};
-
-pub(super) fn paths(d: HDROP) -> Vec<PathBuf> {
-    let n = unsafe { DragQueryFileW(d, u32::MAX, None) };
-    (0..n)
-        .map(|i| {
-            let mut b = vec![0u16; unsafe { DragQueryFileW(d, i, None) } as usize + 1];
-            let len = unsafe { DragQueryFileW(d, i, Some(&mut b)) } as usize;
-            PathBuf::from(String::from_utf16_lossy(&b[..len]))
-        })
-        .collect()
-}
+use windows::Win32::Foundation::HWND;
 
 pub(super) fn files(h: HWND, paths: Vec<PathBuf>, pt: (i32, i32)) {
     let Some(f) = fence_of(h) else { return };

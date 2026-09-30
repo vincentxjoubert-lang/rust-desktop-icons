@@ -2,6 +2,7 @@ use crate::{domain::Fence, shell};
 use std::{collections::HashSet, path::PathBuf};
 use windows::Win32::{
     Foundation::HWND,
+    UI::Shell::IContextMenu,
     UI::WindowsAndMessaging::{DestroyIcon, HICON},
 };
 
@@ -24,7 +25,8 @@ pub struct View {
     pub id: u64,
     pub items: Vec<Item>,
     pub scroll: i32,
-    pub edit: Option<HWND>,
+    pub edit: Option<(HWND, Option<PathBuf>)>,
+    pub native: Option<IContextMenu>,
     pub hover: Option<usize>,
     pub inside: bool,
     pub hold: bool,
@@ -47,6 +49,7 @@ impl View {
             items: vec![],
             scroll: 0,
             edit: None,
+            native: None,
             hover: None,
             inside: false,
             hold: false,

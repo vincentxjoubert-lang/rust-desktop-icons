@@ -3,18 +3,20 @@ mod anim;
 mod arrange;
 mod cell;
 mod drop;
+mod edit;
 mod ghost;
 mod header;
 mod items;
+mod keys;
 mod layout;
 mod menu;
+mod native;
 mod paint;
 mod peek;
 mod select;
 mod snap;
 mod tabs;
 mod target;
-mod title;
 
 use crate::{
     app::{App, with},
@@ -31,10 +33,10 @@ use windows::{
     core::*,
 };
 
+pub use edit::key;
 pub use items::{reload, reload_all};
 pub use paint::render;
 pub use tabs::bind;
-pub use title::key;
 
 pub const CLASS: PCWSTR = w!("RustDesktopIcons.Fence");
 pub const WM_CHANGED: u32 = WM_APP + 10;
@@ -60,10 +62,14 @@ fn to_client(h: HWND, (x, y): (i32, i32)) -> (i32, i32) {
     (p.x, p.y)
 }
 
-fn cursor(h: HWND) -> (i32, i32) {
+fn screen_cursor() -> (i32, i32) {
     let mut p = POINT::default();
     let _ = unsafe { GetCursorPos(&mut p) };
-    to_client(h, (p.x, p.y))
+    (p.x, p.y)
+}
+
+fn cursor(h: HWND) -> (i32, i32) {
+    to_client(h, screen_cursor())
 }
 
 fn fence_of(h: HWND) -> Option<Fence> {
@@ -110,7 +116,11 @@ pub fn create(f: &Fence) -> Option<HWND> {
 pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match m {
         WM_NCHITTEST => return LRESULT(layout::hit(h, lp) as isize),
-        WM_MOUSEACTIVATE => return LRESULT(MA_NOACTIVATE as isize),
+        WM_MOUSEACTIVATE => return LRESULT(if (lp.0 & 0xFFFF) as u32 == HTCLIENT { MA_ACTIVATE } else { MA_NOACTIVATE } as isize),
+        WM_KEYDOWN if keys::handle(h, wp.0 as u16) => {}
+        WM_INITMENUPOPUP | WM_DRAWITEM | WM_MEASUREITEM | WM_MENUCHAR => {
+            return native::forward(h, m, wp, lp).unwrap_or_else(|| unsafe { DefWindowProcW(h, m, wp, lp) });
+        }
         WM_SIZE => render(h),
         WM_WINDOWPOSCHANGING => {
             let p = unsafe { &mut *(lp.0 as *mut WINDOWPOS) };
@@ -174,7 +184,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         }
         WM_TIMER if wp.0 == PEEK => peek::check(h),
         WM_TIMER if wp.0 == ANIM => anim::tick(h),
-        WM_COMMAND if (wp.0 >> 16) as u32 == EN_KILLFOCUS => title::finish(h, true),
+        WM_COMMAND if (wp.0 >> 16) as u32 == EN_KILLFOCUS => edit::finish(h, true),
         _ => return unsafe { DefWindowProcW(h, m, wp, lp) },
     }
     LRESULT(0)
