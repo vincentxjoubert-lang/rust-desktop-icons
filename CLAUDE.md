@@ -21,14 +21,19 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 
 ## Layout
 - `src/domain/` pure logic, all unit-tested: `model.rs` (Config/Fence/Tab/Look), `kind.rs` (file types for rules),
-  `anim.rs`, `grid.rs`, `snap.rs`, `icons.rs`, `color.rs`, `zone.rs`.
+  `order.rs` (per-tab sort + custom order), `anim.rs`, `grid.rs`, `snap.rs`, `icons.rs`, `color.rs`, `zone.rs`.
 - `store.rs` persistence (`tab_dir`: portal path or `fences/<tab id>`); `i18n/` (`mod.rs` logic, `table.rs` 25 languages);
   `update.rs` updater; `rules.rs` desktop watcher + auto-sort; `prefs.rs` global prefs shared by tray and settings.
-- `src/app.rs` global state + startup; `src/tray/` tray icon/menu (`updates.rs` update scheduling).
-- `src/layered/` shared per-pixel window painting (`Frame`: text mask, compositing, present; `Dib`).
+- `src/app/` global state: `mod.rs` App + `with` + startup, `view.rs` per-window state, `res.rs` fonts/glyphs/menu
+  entries with icons, `fences.rs` create/rebuild fences; `src/tray/` tray icon/menu (`updates.rs` update scheduling).
+- `src/layered/` shared per-pixel window painting (`Frame`: text mask, compositing, present; `Dib`; `glyph.rs`
+  Segoe MDL2 icon glyphs, also rendered to menu bitmaps via `App::entry`/`App::sub`).
+- `src/shell/` Win32 shell wrappers: `mod.rs` paths/icons/open, `reg.rs` registry, `link.rs`, `watch.rs`, `dnd.rs`
+  (folder picker, `drag_out` = OLE drag via SHDoDragDrop; the app calls OleInitialize).
 - `src/fence/` fence window: `mod.rs` proc, `layout.rs` geometry, `items.rs` icons, `paint.rs` + `header.rs` rendering,
   `tabs.rs` tabs/portals, `anim.rs` unroll + chameleon fade, `peek.rs` hover, `menu.rs`, `actions.rs`, `title.rs` rename,
-  `drop.rs`, `snap.rs`.
+  `drop.rs` (from outside / onto a tab header / reorder inside a tab), `select.rs` (click, Ctrl+click, rubber band,
+  drag out), `arrange.rs` (per-tab sort and rules submenus), `snap.rs`.
 - `src/settings/` settings window (custom drawn): `rows.rs` content/layout, `paint.rs`, `act.rs`, `mod.rs` window.
 - `installer/main.wxs` per-user MSI (installs to `%LOCALAPPDATA%\Programs`, owns the HKCU Run value).
 

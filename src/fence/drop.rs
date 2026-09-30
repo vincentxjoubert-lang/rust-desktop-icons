@@ -1,32 +1,28 @@
-use super::{fence_of, reload_all, tabs};
+use super::{arrange, fence_of, items, reload_all, tabs};
 use crate::{shell, store};
 use std::path::{Path, PathBuf};
-use windows::Win32::{
-    Foundation::{HWND, POINT},
-    UI::Shell::*,
-};
+use windows::Win32::{Foundation::HWND, UI::Shell::*};
 
-fn paths(d: HDROP) -> (Vec<PathBuf>, (i32, i32)) {
-    let mut pt = POINT::default();
-    let _ = unsafe { DragQueryPoint(d, &mut pt) };
+pub(super) fn paths(d: HDROP) -> Vec<PathBuf> {
     let n = unsafe { DragQueryFileW(d, u32::MAX, None) };
-    let paths = (0..n)
+    (0..n)
         .map(|i| {
             let mut b = vec![0u16; unsafe { DragQueryFileW(d, i, None) } as usize + 1];
             let len = unsafe { DragQueryFileW(d, i, Some(&mut b)) } as usize;
             PathBuf::from(String::from_utf16_lossy(&b[..len]))
         })
-        .collect();
-    unsafe { DragFinish(d) };
-    (paths, (pt.x, pt.y))
+        .collect()
 }
 
-pub(super) fn files(h: HWND, d: HDROP) {
-    let (paths, pt) = paths(d);
+pub(super) fn files(h: HWND, paths: Vec<PathBuf>, pt: (i32, i32)) {
     let Some(f) = fence_of(h) else { return };
-    let tab = tabs::at(h, pt).and_then(|i| f.tabs.get(i)).unwrap_or(f.active());
+    let header = tabs::at(h, pt);
+    let tab = header.and_then(|i| f.tabs.get(i)).unwrap_or(f.active());
     let (dir, fences, desks) = (store::tab_dir(tab), store::root().join("fences"), shell::desktops());
     let is = |q: Option<&Path>, d: &Path| q.is_some_and(|q| shell::same_path(q, d));
+    if header.is_none() && !paths.is_empty() && paths.iter().all(|p| is(p.parent(), &dir)) {
+        return arrange::move_within(h, &paths, items::item_at(h, pt));
+    }
     for p in paths.iter().filter(|p| !is(p.parent(), &dir)) {
         let own = desks.first().is_some_and(|d| is(p.parent(), d)) || is(p.parent().and_then(|q| q.parent()), &fences);
         let public = desks.get(1).is_some_and(|d| is(p.parent(), d));

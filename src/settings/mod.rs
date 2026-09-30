@@ -7,17 +7,12 @@ use windows::{
     Win32::{
         Foundation::*,
         Graphics::Gdi::ScreenToClient,
-        UI::{
-            HiDpi::GetDpiForSystem,
-            Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, VK_ESCAPE},
-            WindowsAndMessaging::*,
-        },
+        UI::{Input::KeyboardAndMouse::VK_ESCAPE, WindowsAndMessaging::*},
     },
     core::*,
 };
 
 const CLASS: PCWSTR = w!("RustDesktopIcons.Settings");
-const WM_MOUSELEAVE: u32 = 0x02A3;
 
 pub struct Panel {
     pub hwnd: HWND,
@@ -62,7 +57,7 @@ pub fn open() {
         let _ = unsafe { SetForegroundWindow(h) };
         return refresh();
     }
-    let s = |v: i32| v * unsafe { GetDpiForSystem() }.max(96) as i32 / 96;
+    let s = sys_scale;
     let mut p = POINT::default();
     let _ = unsafe { GetCursorPos(&mut p) };
     let area = work_area(&RECT { left: p.x, top: p.y, right: p.x + 1, bottom: p.y + 1 });
@@ -88,10 +83,6 @@ fn close() {
     }
 }
 
-fn xy(lp: LPARAM) -> (i32, i32) {
-    (lp.0 as i16 as i32, (lp.0 >> 16) as i16 as i32)
-}
-
 fn content(h: HWND) -> i32 {
     scale(h, rows::TOP + 16) + scale(h, with(|a| rows::total(&rows::build(a))).unwrap_or(0))
 }
@@ -109,8 +100,7 @@ fn row_at(h: HWND, (_, y): (i32, i32)) -> Option<usize> {
 }
 
 fn track(h: HWND, p: (i32, i32)) {
-    let mut tme = TRACKMOUSEEVENT { cbSize: size_of::<TRACKMOUSEEVENT>() as u32, dwFlags: TME_LEAVE, hwndTrack: h, dwHoverTime: 0 };
-    let _ = unsafe { TrackMouseEvent(&mut tme) };
+    track_leave(h);
     let (row, hot) = (row_at(h, p), inside(&close_rect(h), p));
     let changed = with(|a| {
         let panel = a.panel.as_mut()?;

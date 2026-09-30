@@ -30,6 +30,16 @@ pub fn split(w: i32, n: usize, x: i32) -> Option<usize> {
     (0..w).contains(&x).then(|| (x * n / w.max(1)) as usize)
 }
 
+pub fn in_rect(n: usize, w: i32, cell: i32, (x0, y0, x1, y1): (i32, i32, i32, i32)) -> Vec<usize> {
+    let (l, r, t, b) = (x0.min(x1), x0.max(x1), y0.min(y1), y0.max(y1));
+    (0..n)
+        .filter(|&i| {
+            let (x, y) = origin(i, w, cell);
+            x < r && x + cell > l && y < b && y + cell > t
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,6 +53,14 @@ mod tests {
         assert_eq!(index_at((2, 10), 250, 80, 5), None);
         assert_eq!(max_scroll(7, 250, 100, 80), 140);
         assert_eq!(max_scroll(1, 250, 100, 80), 0);
+    }
+
+    #[test]
+    fn band_selection() {
+        assert_eq!(in_rect(5, 250, 80, (90, 5, 100, 90)), vec![1, 4]);
+        assert_eq!(in_rect(5, 250, 80, (100, 90, 90, 5)), vec![1, 4]);
+        assert_eq!(in_rect(5, 250, 80, (0, 0, 4, 4)), Vec::<usize>::new());
+        assert_eq!(in_rect(3, 250, 80, (0, 0, 250, 300)), vec![0, 1, 2]);
     }
 
     #[test]

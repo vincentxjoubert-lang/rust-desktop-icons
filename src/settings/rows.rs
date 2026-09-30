@@ -1,9 +1,14 @@
-use crate::{app::App, domain::Kind, i18n::T, prefs};
+use crate::{
+    app::App,
+    i18n::{self, T},
+    layered::glyph as g,
+    prefs,
+};
 
-pub const TOP: i32 = 52;
-pub const WIDTH: i32 = 440;
-const HEADER: i32 = 36;
-const ROW: i32 = 38;
+pub const TOP: i32 = 56;
+pub const WIDTH: i32 = 460;
+const HEADER: i32 = 46;
+const ROW: i32 = 44;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Act {
@@ -37,26 +42,15 @@ pub struct Row {
     pub label: String,
     pub ctl: Ctl,
     pub act: Option<Act>,
+    pub glyph: char,
 }
 
-fn row(label: &str, ctl: Ctl, act: Act) -> Row {
-    Row { label: label.trim_end_matches('…').into(), ctl, act: Some(act) }
+fn row(label: &str, ctl: Ctl, act: Act, glyph: char) -> Row {
+    Row { label: label.trim_end_matches('…').into(), ctl, act: Some(act), glyph }
 }
 
 fn header(label: &str) -> Row {
-    Row { label: label.into(), ctl: Ctl::Header, act: None }
-}
-
-pub fn kind_label(k: Kind) -> T {
-    match k {
-        Kind::Apps => T::KApps,
-        Kind::Images => T::KImages,
-        Kind::Documents => T::KDocuments,
-        Kind::Videos => T::KVideos,
-        Kind::Music => T::KMusic,
-        Kind::Archives => T::KArchives,
-        Kind::Folders => T::KFolders,
-    }
+    Row { label: label.into(), ctl: Ctl::Header, act: None, glyph: ' ' }
 }
 
 pub fn speed_label(a: &App, ms: u32) -> String {
@@ -67,31 +61,32 @@ pub fn build(a: &App) -> Vec<Row> {
     let (c, l) = (&a.cfg, &a.cfg.look);
     let mut rows = vec![
         header(a.t(T::Appearance)),
-        row(a.t(T::Color), Ctl::Swatch(Some(l.color)), Act::Color),
-        row(a.t(T::Opacity), Ctl::Value(format!("{}%", (l.alpha as u32 * 100 + 127) / 255)), Act::Opacity),
-        row(a.t(T::IconSize), Ctl::Value(format!("{} px", l.icon)), Act::IconSize),
-        row(a.t(T::Tint), Ctl::Swatch(l.tint), Act::Tint),
-        row(a.t(T::Chameleon), Ctl::Toggle(l.chameleon), Act::Chameleon),
-        row(a.t(T::RollSpeed), Ctl::Value(speed_label(a, c.roll_ms)), Act::Speed),
-        row(a.t(T::ApplyAll), Ctl::Button, Act::ApplyAll),
+        row(a.t(T::Color), Ctl::Swatch(Some(l.color)), Act::Color, g::COLOR),
+        row(a.t(T::Opacity), Ctl::Value(format!("{}%", l.percent())), Act::Opacity, g::OPACITY),
+        row(a.t(T::IconSize), Ctl::Value(format!("{} px", l.icon)), Act::IconSize, g::SIZE),
+        row(a.t(T::Tint), Ctl::Swatch(l.tint), Act::Tint, g::TINT),
+        row(a.t(T::ApplyAll), Ctl::Button, Act::ApplyAll, g::CHECK),
+        header(a.t(T::Behavior)),
+        row(a.t(T::Chameleon), Ctl::Toggle(l.chameleon), Act::Chameleon, g::EYE),
+        row(a.t(T::RollSpeed), Ctl::Value(speed_label(a, c.roll_ms)), Act::Speed, g::SPEED),
         header(a.t(T::Rules)),
-        row(a.t(T::AutoSort), Ctl::Toggle(c.auto_sort), Act::AutoSort),
+        row(a.t(T::AutoSort), Ctl::Toggle(c.auto_sort), Act::AutoSort, g::SYNC),
     ];
     for f in &c.fences {
         for t in f.tabs.iter().filter(|t| t.portal.is_none()) {
             let name = if t.id == f.tabs[0].id { t.title.clone() } else { format!("{} › {}", f.tabs[0].title, t.title) };
-            let kinds: Vec<&str> = t.kinds.iter().map(|k| a.t(kind_label(*k))).collect();
+            let kinds: Vec<&str> = t.kinds.iter().map(|k| a.t(i18n::kind(*k))).collect();
             let value = if kinds.is_empty() { a.t(T::None).into() } else { kinds.join(", ") };
-            rows.push(row(&name, Ctl::Value(value), Act::Rule(f.id, t.id)));
+            rows.push(row(&name, Ctl::Value(value), Act::Rule(f.id, t.id), g::FOLDER));
         }
     }
     rows.extend([
-        row(a.t(T::SortNow), Ctl::Button, Act::SortNow),
+        row(a.t(T::SortNow), Ctl::Button, Act::SortNow, g::SORT),
         header(a.t(T::General)),
-        row(a.t(T::Language), Ctl::Value(prefs::lang_name(a).into()), Act::Lang),
-        row(a.t(T::Autostart), Ctl::Toggle(c.autostart), Act::Autostart),
-        row(a.t(T::AutoUpdate), Ctl::Toggle(c.auto_update), Act::AutoUpdate),
-        row(a.t(T::CheckUpdates), Ctl::Button, Act::Check),
+        row(a.t(T::Language), Ctl::Value(prefs::lang_name(a).into()), Act::Lang, g::GLOBE),
+        row(a.t(T::Autostart), Ctl::Toggle(c.autostart), Act::Autostart, g::POWER),
+        row(a.t(T::AutoUpdate), Ctl::Toggle(c.auto_update), Act::AutoUpdate, g::DOWNLOAD),
+        row(a.t(T::CheckUpdates), Ctl::Value(format!("v{}", env!("CARGO_PKG_VERSION"))), Act::Check, g::REFRESH),
     ]);
     rows
 }
@@ -102,6 +97,18 @@ fn height(r: &Row) -> i32 {
 
 pub fn layout(rows: &[Row]) -> Vec<(i32, i32)> {
     rows.iter().scan(0, |y, r| Some((std::mem::replace(y, *y + height(r)), height(r)))).collect()
+}
+
+pub fn cards(rows: &[Row]) -> Vec<(usize, usize)> {
+    let mut out = vec![];
+    for (i, r) in rows.iter().enumerate() {
+        match (r.ctl == Ctl::Header, out.last_mut()) {
+            (true, _) => {}
+            (false, Some((_, end))) if *end + 1 == i => *end = i,
+            _ => out.push((i, i)),
+        }
+    }
+    out
 }
 
 pub fn total(rows: &[Row]) -> i32 {
@@ -118,12 +125,19 @@ mod tests {
 
     #[test]
     fn row_layout() {
-        let rows = vec![header("A"), row("b", Ctl::Button, Act::Check), row("c", Ctl::Toggle(true), Act::AutoSort)];
+        let rows = vec![header("A"), row("b", Ctl::Button, Act::Check, 'x'), row("c", Ctl::Toggle(true), Act::AutoSort, 'x')];
         assert_eq!(layout(&rows), vec![(0, HEADER), (HEADER, ROW), (HEADER + ROW, ROW)]);
         assert_eq!(total(&rows), HEADER + 2 * ROW);
         assert_eq!(at(&rows, 5), None);
         assert_eq!(at(&rows, HEADER + 1), Some(1));
         assert_eq!(at(&rows, HEADER + ROW + ROW - 1), Some(2));
         assert_eq!(at(&rows, total(&rows)), None);
+    }
+
+    #[test]
+    fn card_groups() {
+        let r = |c| row("r", c, Act::Check, 'x');
+        let rows = vec![header("A"), r(Ctl::Button), r(Ctl::Button), header("B"), r(Ctl::Toggle(false))];
+        assert_eq!(cards(&rows), vec![(1, 2), (4, 4)]);
     }
 }

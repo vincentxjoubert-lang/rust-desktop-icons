@@ -2,7 +2,7 @@ use super::{refresh, rows};
 use crate::{
     app::{change, rebuild, with},
     domain::{Kind, Look, anim, icons},
-    i18n::T,
+    i18n::{self, T},
     prefs, rules,
     tray::{self, updates},
     win::*,
@@ -29,7 +29,7 @@ fn look() -> Look {
 fn rule(h: HWND, fence: u64, tab: u64) {
     let Some(options) = with(|a| {
         let t = a.cfg.fences.iter().find(|f| f.id == fence)?.tabs.iter().find(|t| t.id == tab)?;
-        Some(Kind::ALL.iter().map(|k| (a.t(rows::kind_label(*k)).to_string(), t.kinds.contains(k))).collect())
+        Some(Kind::ALL.iter().map(|k| (a.t(i18n::kind(*k)).to_string(), t.kinds.contains(k))).collect())
     })
     .flatten() else {
         return;
@@ -56,7 +56,7 @@ fn perform(h: HWND, act: rows::Act) {
             }
         }
         Opacity => {
-            if let Some(p) = pick(h, &Look::PERCENTS, (l.alpha as u32 * 100 + 127) / 255, |p| format!("{p}%")) {
+            if let Some(p) = pick(h, &Look::PERCENTS, l.percent(), |p| format!("{p}%")) {
                 change(|c| c.look.alpha = Look::alpha_for(p));
             }
         }

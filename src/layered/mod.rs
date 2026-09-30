@@ -1,10 +1,12 @@
 mod dib;
+pub mod glyph;
 
 use crate::render::{Canvas, blur, gray, premul};
 pub use dib::Dib;
 use windows::Win32::{Foundation::*, Graphics::Gdi::*, UI::WindowsAndMessaging::*};
 
 pub const WHITE: u32 = 0xFF_FFFF;
+pub const ACCENT: u32 = 0xD4_7800;
 
 pub struct Frame {
     pub w: i32,
@@ -54,6 +56,16 @@ impl Frame {
     pub fn flush(&mut self) {
         let _ = unsafe { GdiFlush() };
         gray(self.mask.px());
+    }
+
+    pub fn export_bitmap(&mut self) -> Option<HBITMAP> {
+        let mut out = std::mem::ManuallyDrop::new(Dib::new(self.w, self.h)?);
+        out.px().copy_from_slice(self.canvas.px());
+        Some(out.bmp)
+    }
+
+    pub fn clear_mask(&mut self) {
+        self.mask.px().fill(0);
     }
 
     pub fn canvas(&mut self) -> Canvas<'_> {

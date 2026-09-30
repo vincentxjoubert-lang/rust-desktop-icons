@@ -1,5 +1,5 @@
 pub const SPEEDS: [u32; 5] = [0, 120, 220, 350, 500];
-pub const DEFAULT_MS: u32 = 220;
+pub const DEFAULT_MS: u32 = 350;
 pub const REST: f32 = 0.22;
 
 pub fn advance(p: f32, target: f32, dt_ms: f32, ms: u32) -> f32 {

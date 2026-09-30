@@ -2,9 +2,14 @@ use std::{os::windows::ffi::OsStrExt, path::Path};
 use windows::{
     Win32::{
         Foundation::*,
-        Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect},
+        Graphics::Gdi::{GetMonitorInfoW, HBITMAP, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect},
         System::LibraryLoader::GetModuleHandleW,
-        UI::{Controls::Dialogs::*, HiDpi::GetDpiForWindow, WindowsAndMessaging::*},
+        UI::{
+            Controls::Dialogs::*,
+            HiDpi::{GetDpiForSystem, GetDpiForWindow},
+            Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent},
+            WindowsAndMessaging::*,
+        },
     },
     core::*,
 };
@@ -41,6 +46,21 @@ pub fn work_area(r: &RECT) -> RECT {
 
 pub fn scale(h: HWND, v: i32) -> i32 {
     v * unsafe { GetDpiForWindow(h) }.max(96) as i32 / 96
+}
+
+pub const WM_MOUSELEAVE: u32 = 0x02A3;
+
+pub fn xy(lp: LPARAM) -> (i32, i32) {
+    (lp.0 as i16 as i32, (lp.0 >> 16) as i16 as i32)
+}
+
+pub fn track_leave(h: HWND) {
+    let mut tme = TRACKMOUSEEVENT { cbSize: size_of::<TRACKMOUSEEVENT>() as u32, dwFlags: TME_LEAVE, hwndTrack: h, dwHoverTime: 0 };
+    let _ = unsafe { TrackMouseEvent(&mut tme) };
+}
+
+pub fn sys_scale(v: i32) -> i32 {
+    v * unsafe { GetDpiForSystem() }.max(96) as i32 / 96
 }
 
 pub fn register(class: PCWSTR, proc: WNDPROC) {
@@ -80,6 +100,11 @@ pub fn menu() -> HMENU {
 pub fn item(m: HMENU, id: usize, text: &str, checked: bool) {
     let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
     unsafe { AppendMenuW(m, flags, id, PCWSTR(wide(text).as_ptr())).ok() };
+}
+
+pub fn icon(m: HMENU, item: u32, by_position: bool, bmp: HBITMAP) {
+    let info = MENUITEMINFOW { cbSize: size_of::<MENUITEMINFOW>() as u32, fMask: MIIM_BITMAP, hbmpItem: bmp, ..Default::default() };
+    unsafe { SetMenuItemInfoW(m, item, by_position, &info).ok() };
 }
 
 pub fn submenu(m: HMENU, text: &str, child: HMENU) {

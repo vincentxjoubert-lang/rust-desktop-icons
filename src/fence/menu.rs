@@ -1,8 +1,9 @@
-use super::{actions, cursor, fence_of, items, peek, reload, tabs, title, update};
+use super::{actions, arrange, cursor, fence_of, items, peek, reload, select, tabs, title, update};
 use crate::{
     app::with,
     domain::{Look, icons},
     i18n::T,
+    layered::glyph as g,
     settings, shell, store,
     win::*,
 };
@@ -13,14 +14,14 @@ pub(super) fn context(h: HWND) {
     if let Some(i) = tabs::at(h, p) {
         tabs::select(h, i);
     }
-    let target = items::item_at(h, p);
+    let targets = items::item_at(h, p).map(|t| select::focus(h, &t)).unwrap_or_default();
     let Some(f) = fence_of(h) else { return };
     let Some((m, rtl)) = with(|a| {
         let m = menu();
-        if target.is_some() {
-            item(m, 30, a.t(T::Open), false);
-            item(m, 31, a.t(T::Restore), false);
-            item(m, 32, a.t(T::Delete), false);
+        if !targets.is_empty() {
+            a.entry(m, 30, T::Open, false, g::OPEN);
+            a.entry(m, 31, T::Restore, false, g::DESKTOP);
+            a.entry(m, 32, T::Delete, false, g::DELETE);
             separator(m);
         }
         let (o, sizes, tint) = (menu(), menu(), menu());
@@ -32,29 +33,34 @@ pub(super) fn context(h: HWND) {
         }
         item(tint, 50, a.t(T::None), f.look.tint.is_none());
         item(tint, 51, a.t(T::Color), f.look.tint.is_some());
-        item(m, 10, a.t(T::Rename), false);
-        item(m, 11, a.t(T::Color), false);
-        submenu(m, a.t(T::Opacity), o);
-        submenu(m, a.t(T::IconSize), sizes);
-        submenu(m, a.t(T::Tint), tint);
-        item(m, 16, a.t(T::Chameleon), f.look.chameleon);
-        item(m, 12, a.t(T::Roll), f.rolled);
+        a.entry(m, 10, T::Rename, false, g::RENAME);
+        a.entry(m, 11, T::Color, false, g::COLOR);
+        a.sub(m, T::Opacity, o, g::OPACITY);
+        a.sub(m, T::IconSize, sizes, g::SIZE);
+        a.sub(m, T::Tint, tint, g::TINT);
+        arrange::submenus(a, m, f.active());
+        a.entry(m, 16, T::Chameleon, f.look.chameleon, g::EYE);
+        a.entry(m, 12, T::Roll, f.rolled, g::ROLL);
         separator(m);
-        item(m, 60, a.t(T::NewTab), false);
-        item(m, 61, a.t(T::NewPortal), false);
+        a.entry(m, 60, T::NewTab, false, g::TAB);
+        a.entry(m, 61, T::NewPortal, false, g::PORTAL);
         if f.tabs.len() > 1 {
-            item(m, 62, a.t(T::DeleteTab), false);
+            a.entry(m, 62, T::DeleteTab, false, g::CLOSE);
         }
-        item(m, 13, a.t(T::OpenFolder), false);
+        a.entry(m, 13, T::OpenFolder, false, g::FOLDER);
         separator(m);
-        item(m, 14, a.t(T::DeleteFence), false);
-        item(m, 15, a.t(T::NewFence), false);
-        item(m, 17, a.t(T::Settings), false);
+        a.entry(m, 14, T::DeleteFence, false, g::DELETE);
+        a.entry(m, 15, T::NewFence, false, g::ADD);
+        a.entry(m, 17, T::Settings, false, g::SETTINGS);
         (m, a.rtl())
     }) else {
         return;
     };
-    match popup(h, m, rtl) {
+    let id = popup(h, m, rtl);
+    if arrange::handle(h, id) {
+        return;
+    }
+    match id {
         10 => title::rename(h),
         11 => actions::color(h),
         12 => peek::toggle(h),
@@ -73,9 +79,17 @@ pub(super) fn context(h: HWND) {
         60 => tabs::new_tab(h),
         61 => tabs::new_portal(h),
         62 => tabs::remove(h),
-        30 => target.iter().for_each(|p| shell::open(p)),
-        31 => target.iter().for_each(|p| actions::restore_item(h, p)),
-        32 if target.is_some_and(|p| shell::recycle(&p)) => reload(h),
+        30 => targets.iter().for_each(|p| shell::open(p)),
+        31 => {
+            targets.iter().for_each(|p| actions::restore(p));
+            reload(h);
+        }
+        32 => {
+            targets.iter().for_each(|p| {
+                shell::recycle(p);
+            });
+            reload(h);
+        }
         _ => {}
     }
 }

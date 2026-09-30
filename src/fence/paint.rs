@@ -1,18 +1,18 @@
-use super::{TITLE, header, label_font, metrics, title_font};
+use super::{TITLE, cell, header, label_font, metrics, title_font};
 use crate::{
     app::with,
     domain::{anim, color, grid},
-    layered::{Dib, Frame, WHITE},
+    layered::{ACCENT, Dib, Frame, WHITE},
     render::{flat, opaque_if_flat, premul, tint},
     win::*,
 };
-use windows::Win32::{Foundation::*, Graphics::Gdi::*, UI::WindowsAndMessaging::*};
+use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 pub fn render(h: HWND) {
     let wr = window_rect(h);
     let (w, ht) = (wr.right - wr.left, wr.bottom - wr.top);
     let s = |v| scale(h, v);
-    let ((cell, icon), t, pad, top_gap) = (metrics(h), s(TITLE), s(10), s(4));
+    let ((cell, icon), t, top_gap) = (metrics(h), s(TITLE), s(4));
     let (Some(mut frame), Some(mut icons)) = (Frame::new(w, ht), Dib::new(w, ht)) else {
         return;
     };
@@ -32,17 +32,17 @@ pub fn render(h: HWND) {
             .collect();
         frame.clip((0, t, w, ht));
         for &(i, x, y) in &cells {
-            let mut r = RECT { left: x + s(5), top: y + pad + icon + s(6), right: x + cell - s(5), bottom: y + cell };
-            frame.text_w(fi, &mut v.items[i].name, &mut r, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_EDITCONTROL);
+            frame.text_w(fi, &mut v.items[i].name, &mut cell::label_at((x, y), cell, icon, s), cell::LABEL);
         }
         frame.target(&icons);
-        let ix = |x: i32| x + (cell - icon) / 2;
         for &(i, x, y) in &cells {
-            let _ = DrawIconEx(frame.dc(), ix(x), y + pad, v.items[i].icon, icon, icon, 0, None, DI_NORMAL);
+            let (ix, iy) = cell::icon_at((x, y), cell, icon, s);
+            let _ = DrawIconEx(frame.dc(), ix, iy, v.items[i].icon, icon, icon, 0, None, DI_NORMAL);
         }
         frame.flush();
         for &(_, x, y) in &cells {
-            opaque_if_flat(icons.px(), w, (ix(x), y + pad, ix(x) + icon, y + pad + icon));
+            let (ix, iy) = cell::icon_at((x, y), cell, icon, s);
+            opaque_if_flat(icons.px(), w, (ix, iy, ix + icon, iy + icon));
         }
         if let Some(c) = f.look.tint {
             tint(icons.px(), c);
@@ -54,10 +54,20 @@ pub fn render(h: HWND) {
         let mut c = frame.canvas();
         c.rrect(full, rad, (tone(10, body), tone(-14, body.saturating_add(20))), (t, ht), false);
         header::shapes(&mut c, &f, t, s);
-        if let Some(&(_, x, y)) = cells.iter().find(|c| Some(c.0) == v.hover) {
-            let r = (x + s(5), y + s(3), x + cell - s(5), y + cell - s(1));
-            c.rrect(r, rad, flat(premul(WHITE, 40)), (t, ht), false);
-            c.rrect(r, rad, flat(premul(WHITE, 60)), (t, ht), true);
+        for &(i, x, y) in &cells {
+            let (sel, hot) = (v.selected.contains(&v.items[i].path), v.hover == Some(i));
+            if sel || hot {
+                let r = (x + s(5), y + s(3), x + cell - s(5), y + cell - s(1));
+                let (fill, line) = if sel { (premul(ACCENT, 90), premul(ACCENT, 200)) } else { (premul(WHITE, 40), premul(WHITE, 60)) };
+                c.rrect(r, rad, flat(fill), (t, ht), false);
+                c.rrect(r, rad, flat(line), (t, ht), true);
+            }
+        }
+        if let Some(((x0, y0), (x1, y1))) = v.band {
+            let off = t + top_gap - v.scroll;
+            let r = (x0.min(x1), y0.min(y1) + off, x0.max(x1), y0.max(y1) + off);
+            c.rrect(r, s(2) as f32, flat(premul(ACCENT, 50)), (t, ht), false);
+            c.rrect(r, s(2) as f32, flat(premul(ACCENT, 200)), (t, ht), true);
         }
         c.layer(icons.px(), (0, 0), None, (t, ht));
         if max > 0 {

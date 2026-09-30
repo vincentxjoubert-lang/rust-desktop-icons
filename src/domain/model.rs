@@ -1,4 +1,4 @@
-use super::{anim, icons, kind::Kind};
+use super::{anim, icons, kind::Kind, order::Sort};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::PathBuf};
 
@@ -25,6 +25,10 @@ impl Default for Look {
 impl Look {
     pub const PERCENTS: [u32; 8] = [30, 40, 50, 60, 70, 80, 90, 100];
 
+    pub fn percent(&self) -> u32 {
+        (self.alpha as u32 * 100 + 127) / 255
+    }
+
     pub fn alpha_for(pct: u32) -> u8 {
         (pct.min(100) * 255 / 100) as u8
     }
@@ -45,6 +49,8 @@ pub struct Tab {
     pub title: String,
     pub portal: Option<PathBuf>,
     pub kinds: Vec<Kind>,
+    pub sort: Sort,
+    pub order: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -185,6 +191,7 @@ mod tests {
     #[test]
     fn opacity_steps() {
         assert_eq!((Look::alpha_for(30), Look::alpha_for(100), Look::alpha_for(500)), (76, 255, 255));
+        assert_eq!(Look { alpha: Look::alpha_for(70), ..Look::default() }.percent(), 70);
     }
 
     #[test]

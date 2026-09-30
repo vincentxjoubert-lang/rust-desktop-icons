@@ -1,3 +1,5 @@
+use crate::domain::{Kind, Sort};
+
 #[derive(Clone, Copy)]
 pub enum T {
     NewFence,
@@ -46,13 +48,19 @@ pub enum T {
     KMusic,
     KArchives,
     KFolders,
+    Behavior,
+    SortBy,
+    SortName,
+    SortType,
+    SortDate,
+    SortCustom,
 }
 
 mod table;
 
 use table::S;
 
-const N: usize = 46;
+const N: usize = 52;
 
 pub const LANGS: [(&str, &str); 25] = [
     ("en", "English"),
@@ -82,6 +90,27 @@ pub const LANGS: [(&str, &str); 25] = [
     ("fa", "فارسی"),
 ];
 
+pub fn kind(k: Kind) -> T {
+    match k {
+        Kind::Apps => T::KApps,
+        Kind::Images => T::KImages,
+        Kind::Documents => T::KDocuments,
+        Kind::Videos => T::KVideos,
+        Kind::Music => T::KMusic,
+        Kind::Archives => T::KArchives,
+        Kind::Folders => T::KFolders,
+    }
+}
+
+pub fn sort(s: Sort) -> T {
+    match s {
+        Sort::Name => T::SortName,
+        Sort::Type => T::SortType,
+        Sort::Date => T::SortDate,
+        Sort::Custom => T::SortCustom,
+    }
+}
+
 pub fn get(lang: usize, key: T) -> &'static str {
     S[lang.min(S.len() - 1)][key as usize]
 }
@@ -105,7 +134,7 @@ mod tests {
     #[test]
     fn complete_tables() {
         assert!(S.iter().flatten().all(|s| !s.trim().is_empty()));
-        assert_eq!(T::KFolders as usize, N - 1);
+        assert_eq!(T::SortCustom as usize, N - 1);
     }
 
     #[test]

@@ -1,14 +1,19 @@
 mod actions;
 mod anim;
+mod arrange;
+mod cell;
 mod drop;
+mod ghost;
 mod header;
 mod items;
 mod layout;
 mod menu;
 mod paint;
 mod peek;
+mod select;
 mod snap;
 mod tabs;
+mod target;
 mod title;
 
 use crate::{
@@ -21,11 +26,7 @@ use windows::{
     Win32::{
         Foundation::*,
         Graphics::Gdi::{FW_NORMAL, FW_SEMIBOLD, HFONT, MONITOR_DEFAULTTONULL, MonitorFromRect, ScreenToClient},
-        UI::{
-            Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent},
-            Shell::HDROP,
-            WindowsAndMessaging::*,
-        },
+        UI::WindowsAndMessaging::*,
     },
     core::*,
 };
@@ -40,7 +41,6 @@ pub const WM_CHANGED: u32 = WM_APP + 10;
 const TITLE: i32 = 34;
 const BORDER: i32 = 6;
 const EN_KILLFOCUS: u32 = 0x0200;
-const WM_MOUSELEAVE: u32 = 0x02A3;
 const MK_CONTROL: usize = 0x0008;
 const RELOAD: usize = 1;
 const PEEK: usize = 2;
@@ -52,10 +52,6 @@ fn title_font(a: &mut App, h: HWND) -> HFONT {
 
 fn label_font(a: &mut App, h: HWND) -> HFONT {
     a.font(scale(h, 12), FW_NORMAL.0)
-}
-
-fn xy(lp: LPARAM) -> (i32, i32) {
-    (lp.0 as i16 as i32, (lp.0 >> 16) as i16 as i32)
 }
 
 fn to_client(h: HWND, (x, y): (i32, i32)) -> (i32, i32) {
@@ -97,7 +93,7 @@ pub fn create(f: &Fence) -> Option<HWND> {
         let r = RECT { left: f.x, top: f.y, right: f.x + f.w, bottom: f.y + f.h };
         let (x, y) = if MonitorFromRect(&r, MONITOR_DEFAULTTONULL).is_invalid() { (100, 100) } else { (f.x, f.y) };
         let owner = if top() { None } else { FindWindowW(w!("Progman"), None).ok() };
-        let ex = WS_EX_TOOLWINDOW | WS_EX_ACCEPTFILES | WS_EX_LAYERED;
+        let ex = WS_EX_TOOLWINDOW | WS_EX_LAYERED;
         let h = CreateWindowExW(ex, CLASS, PCWSTR::null(), WS_POPUP, x, y, f.w, f.h, owner, None, Some(inst()), None).ok()?;
         if f.rolled {
             layout::resize(h, f);
@@ -106,6 +102,7 @@ pub fn create(f: &Fence) -> Option<HWND> {
             let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
         let _ = ShowWindow(h, SW_SHOWNOACTIVATE);
+        target::register(h);
         Some(h)
     }
 }
@@ -146,12 +143,15 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         }
         WM_NCRBUTTONUP if wp.0 as u32 == HTCAPTION => menu::context(h),
         WM_LBUTTONDBLCLK => items::item_at(h, xy(lp)).iter().for_each(|p| shell::open(p)),
+        WM_LBUTTONDOWN => select::down(h, xy(lp), wp.0 & MK_CONTROL != 0),
+        WM_LBUTTONUP | WM_CAPTURECHANGED => select::up(h),
         WM_CONTEXTMENU => menu::context(h),
         WM_MOUSEMOVE => {
-            let mut tme = TRACKMOUSEEVENT { cbSize: size_of::<TRACKMOUSEEVENT>() as u32, dwFlags: TME_LEAVE, hwndTrack: h, dwHoverTime: 0 };
-            let _ = unsafe { TrackMouseEvent(&mut tme) };
+            track_leave(h);
             peek::enter(h);
-            items::hover(h, items::index_at(h, xy(lp)));
+            if !select::track(h, xy(lp)) {
+                items::hover(h, items::index_at(h, xy(lp)));
+            }
         }
         WM_MOUSELEAVE => items::hover(h, None),
         WM_MOUSEWHEEL if wp.0 & MK_CONTROL != 0 => {
@@ -164,7 +164,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             with(|a| a.view(h).map(|v| v.scroll -= step));
             render(h);
         }
-        WM_DROPFILES => drop::files(h, HDROP(wp.0 as _)),
+        WM_DESTROY => target::revoke(h),
         WM_CHANGED => {
             unsafe { SetTimer(Some(h), RELOAD, 150, None) };
         }

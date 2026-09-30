@@ -3,6 +3,7 @@ pub mod updates;
 use crate::{
     app::{new_fence, rebuild, with},
     i18n::T,
+    layered::glyph as g,
     prefs, rules, settings,
     win::*,
 };
@@ -79,16 +80,17 @@ unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESU
 fn menu_at(h: HWND) {
     let Some((m, rtl)) = with(|a| {
         let m = menu();
-        item(m, 1, a.t(T::NewFence), false);
-        item(m, 7, a.t(T::Settings), false);
+        a.entry(m, 1, T::NewFence, false, g::ADD);
+        a.entry(m, 7, T::Settings, false, g::SETTINGS);
         separator(m);
-        submenu(m, a.t(T::Language), prefs::lang_menu(a));
-        item(m, 2, a.t(T::Autostart), a.cfg.autostart);
-        item(m, 3, a.t(T::AutoUpdate), a.cfg.auto_update);
-        item(m, 4, a.t(T::CheckUpdates), false);
-        item(m, 5, a.t(T::About), false);
+        let l = prefs::lang_menu(a);
+        a.sub(m, T::Language, l, g::GLOBE);
+        a.entry(m, 2, T::Autostart, a.cfg.autostart, g::POWER);
+        a.entry(m, 3, T::AutoUpdate, a.cfg.auto_update, g::SYNC);
+        a.entry(m, 4, T::CheckUpdates, false, g::REFRESH);
+        a.entry(m, 5, T::About, false, g::INFO);
         separator(m);
-        item(m, 6, a.t(T::Quit), false);
+        a.entry(m, 6, T::Quit, false, g::CLOSE);
         (m, a.rtl())
     }) else {
         return;

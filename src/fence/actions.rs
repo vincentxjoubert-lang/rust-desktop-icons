@@ -1,4 +1,4 @@
-use super::{fence_of, reload, update};
+use super::{fence_of, update};
 use crate::{app::with, i18n::T, rules, shell, store, win::*};
 use std::{fs, path::Path};
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
@@ -48,9 +48,4 @@ pub(super) fn delete(h: HWND) {
         a.save();
     });
     unsafe { DestroyWindow(h).ok() };
-}
-
-pub(super) fn restore_item(h: HWND, p: &Path) {
-    restore(p);
-    reload(h);
 }
