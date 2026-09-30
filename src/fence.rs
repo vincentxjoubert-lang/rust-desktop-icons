@@ -2,17 +2,18 @@ use crate::{
     app::{Item, with},
     domain::{Fence, Zone, color, grid, zone},
     i18n::T,
+    render::{Canvas, opaque_if_flat, premul},
     shell, store,
     win::*,
 };
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, ptr::null_mut, slice};
 use windows::{
     Win32::{
         Foundation::*,
         Graphics::Gdi::*,
         UI::{
             Controls::{Dialogs::*, EM_LIMITTEXT, EM_SETSEL},
-            Input::KeyboardAndMouse::{SetFocus, VK_ESCAPE, VK_RETURN},
+            Input::KeyboardAndMouse::{SetFocus, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, VK_ESCAPE, VK_RETURN},
             Shell::*,
             WindowsAndMessaging::*,
         },
@@ -21,11 +22,12 @@ use windows::{
 };
 
 pub const CLASS: PCWSTR = w!("RustDesktopIcons.Fence");
-const TITLE: i32 = 28;
-const CELL: i32 = 84;
+const TITLE: i32 = 30;
+const CELL: i32 = 86;
 const ICON: i32 = 32;
 const BORDER: i32 = 6;
 const EN_KILLFOCUS: u32 = 0x0200;
+const WM_MOUSELEAVE: u32 = 0x02A3;
 
 fn xy(lp: LPARAM) -> (i32, i32) {
     (lp.0 as i16 as i32, (lp.0 >> 16) as i16 as i32)
@@ -66,7 +68,7 @@ pub fn create(f: &Fence) -> Option<HWND> {
             WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_ACCEPTFILES,
             CLASS,
             PCWSTR::null(),
-            WS_POPUP | WS_CLIPCHILDREN,
+            WS_POPUP,
             f.x,
             f.y,
             f.w,
@@ -77,7 +79,6 @@ pub fn create(f: &Fence) -> Option<HWND> {
             None,
         )
         .ok()?;
-        let _ = SetLayeredWindowAttributes(h, COLORREF(0), f.alpha, LWA_ALPHA);
         let _ = ShowWindow(h, SW_SHOWNOACTIVATE);
         Some(h)
     }
@@ -86,11 +87,8 @@ pub fn create(f: &Fence) -> Option<HWND> {
 fn apply(h: HWND) {
     let Some(f) = fence_of(h) else { return };
     let height = if f.rolled { scale(h, TITLE) } else { f.h };
-    unsafe {
-        let _ = SetLayeredWindowAttributes(h, COLORREF(0), f.alpha, LWA_ALPHA);
-        let _ = SetWindowPos(h, None, 0, 0, f.w, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        let _ = InvalidateRect(Some(h), None, false);
-    }
+    let _ = unsafe { SetWindowPos(h, None, 0, 0, f.w, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) };
+    render(h);
 }
 
 pub fn reload(h: HWND) {
@@ -111,7 +109,7 @@ pub fn reload(h: HWND) {
         })
         .collect();
     with(|a| a.view(h).map(|v| v.items = items));
-    let _ = unsafe { InvalidateRect(Some(h), None, false) };
+    render(h);
 }
 
 pub fn key(msg: &MSG) -> bool {
@@ -127,25 +125,27 @@ pub fn key(msg: &MSG) -> bool {
 }
 
 fn rename(h: HWND) {
-    let px = scale(h, 13);
+    let px = scale(h, 14);
     let Some((title, font)) = with(|a| {
         let id = a.view(h)?.id;
         let title = a.fence(id)?.title.clone();
-        Some((title, a.font(px)))
+        Some((title, a.font(px, true)))
     })
     .flatten() else {
         return;
     };
     let (r, t, pad) = (client(h), scale(h, TITLE), scale(h, 4));
+    let mut p = POINT { x: pad, y: pad / 2 };
     unsafe {
-        let style = WS_CHILD | WS_VISIBLE | WS_BORDER | WINDOW_STYLE((ES_CENTER | ES_AUTOHSCROLL) as u32);
+        let _ = ClientToScreen(h, &mut p);
+        let style = WS_POPUP | WS_VISIBLE | WS_BORDER | WINDOW_STYLE((ES_CENTER | ES_AUTOHSCROLL) as u32);
         let Ok(e) = CreateWindowExW(
-            WINDOW_EX_STYLE(0),
+            WS_EX_TOOLWINDOW,
             w!("EDIT"),
             PCWSTR(wide(&title).as_ptr()),
             style,
-            pad,
-            pad / 2,
+            p.x,
+            p.y,
             r.right - 2 * pad,
             t - pad,
             Some(h),
@@ -159,7 +159,7 @@ fn rename(h: HWND) {
         SendMessageW(e, EM_LIMITTEXT, Some(WPARAM(64)), None);
         SendMessageW(e, EM_SETSEL, Some(WPARAM(0)), Some(LPARAM(-1)));
         with(|a| a.view(h).map(|v| v.edit = Some(e)));
-        let _ = SetForegroundWindow(h);
+        let _ = SetForegroundWindow(e);
         let _ = SetFocus(Some(e));
     }
 }
@@ -216,14 +216,24 @@ fn delete(h: HWND, f: &Fence) {
     unsafe { DestroyWindow(h).ok() };
 }
 
-fn item_at(h: HWND, (x, y): (i32, i32)) -> Option<PathBuf> {
+fn index_at(h: HWND, (x, y): (i32, i32)) -> Option<usize> {
     let (w, t, cell) = (client(h).right, scale(h, TITLE), scale(h, CELL));
     with(|a| {
         let v = a.view(h)?;
-        let i = grid::index_at((x, y - t + v.scroll), w, cell, v.items.len())?;
-        (y >= t).then(|| v.items[i].path.clone())
+        (y >= t).then(|| grid::index_at((x, y - t + v.scroll), w, cell, v.items.len()))?
     })
     .flatten()
+}
+
+fn item_at(h: HWND, p: (i32, i32)) -> Option<PathBuf> {
+    let i = index_at(h, p)?;
+    with(|a| a.view(h)?.items.get(i).map(|it| it.path.clone())).flatten()
+}
+
+fn hover(h: HWND, i: Option<usize>) {
+    if with(|a| a.view(h).map(|v| std::mem::replace(&mut v.hover, i) != i)).flatten() == Some(true) {
+        render(h);
+    }
 }
 
 fn context(h: HWND) {
@@ -306,63 +316,109 @@ fn drop_files(h: HWND, d: HDROP) {
     with(|a| a.views.iter().map(|v| v.hwnd).collect::<Vec<_>>()).into_iter().flatten().for_each(reload);
 }
 
-fn paint(h: HWND) {
-    unsafe {
-        let mut ps = PAINTSTRUCT::default();
-        let dc = BeginPaint(h, &mut ps);
-        let rc = client(h);
-        let mdc = CreateCompatibleDC(Some(dc));
-        let bmp = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
-        let old = SelectObject(mdc, bmp.into());
-        draw(h, mdc, rc);
-        let _ = BitBlt(dc, 0, 0, rc.right, rc.bottom, Some(mdc), 0, 0, SRCCOPY);
-        SelectObject(mdc, old);
-        let _ = DeleteObject(bmp.into());
-        let _ = DeleteDC(mdc);
-        let _ = EndPaint(h, &ps);
+struct Dib {
+    bmp: HBITMAP,
+    ptr: *mut u32,
+    len: usize,
+}
+
+impl Dib {
+    fn new(w: i32, h: i32) -> Option<Self> {
+        let bi = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: w,
+                biHeight: -h,
+                biPlanes: 1,
+                biBitCount: 32,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut bits = null_mut();
+        let bmp = unsafe { CreateDIBSection(None, &bi, DIB_RGB_COLORS, &mut bits, None, 0) }.ok()?;
+        (!bits.is_null()).then(|| Self { bmp, ptr: bits.cast(), len: (w * h) as usize })
+    }
+
+    fn px(&mut self) -> &mut [u32] {
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 }
 
-unsafe fn fill(dc: HDC, r: &RECT, c: u32) {
-    let b = CreateSolidBrush(COLORREF(c));
-    FillRect(dc, r, b);
-    let _ = DeleteObject(b.into());
+impl Drop for Dib {
+    fn drop(&mut self) {
+        let _ = unsafe { DeleteObject(self.bmp.into()) };
+    }
 }
 
-fn draw(h: HWND, dc: HDC, rc: RECT) {
-    let (t, cell, icon, px) = (scale(h, TITLE), scale(h, CELL), scale(h, ICON), scale(h, 13));
+pub fn render(h: HWND) {
+    let mut wr = RECT::default();
+    unsafe { GetWindowRect(h, &mut wr).ok() };
+    let (w, ht) = (wr.right - wr.left, wr.bottom - wr.top);
+    let s = |v| scale(h, v);
+    let (t, cell, icon, pad) = (s(TITLE), s(CELL), s(ICON), s(8));
+    let (Some(mut canvas), Some(mut icons), Some(mut mask)) = (Dib::new(w, ht), Dib::new(w, ht), Dib::new(w, ht)) else {
+        return;
+    };
     with(|a| unsafe {
-        let font = a.font(px);
+        let (ft, fi) = (a.font(s(14), true), a.font(s(12), false));
         let id = a.view(h)?.id;
         let f = a.fence(id)?.clone();
         let v = a.view(h)?;
-        fill(dc, &rc, f.color);
-        fill(dc, &RECT { bottom: t, ..rc }, color::shade(f.color, 24));
-        SelectObject(dc, font.into());
+        let dc = CreateCompatibleDC(None);
+        let old = SelectObject(dc, mask.bmp.into());
         SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, COLORREF(color::contrast(f.color)));
+        SetTextColor(dc, COLORREF(0xFF_FFFF));
+        SelectObject(dc, ft.into());
         let mut title: Vec<u16> = f.title.encode_utf16().collect();
-        DrawTextW(
-            dc,
-            &mut title,
-            &mut RECT { left: t / 2, right: rc.right - t / 2, bottom: t, ..rc },
-            DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX,
-        );
-        if f.rolled {
-            return Some(());
+        let flags = DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX;
+        DrawTextW(dc, &mut title, &mut RECT { left: t / 2, top: 0, right: w - t / 2, bottom: t }, flags);
+        v.scroll = v.scroll.clamp(0, grid::max_scroll(v.items.len(), w, ht - t, cell));
+        let cells: Vec<(usize, i32, i32)> = (0..if f.rolled { 0 } else { v.items.len() })
+            .map(|i| (i, grid::origin(i, w, cell)))
+            .map(|(i, (x, y))| (i, x, y + t + s(4) - v.scroll))
+            .filter(|&(_, _, y)| y + cell > t && y < ht)
+            .collect();
+        SelectObject(dc, fi.into());
+        IntersectClipRect(dc, 0, t, w, ht);
+        for &(i, x, y) in &cells {
+            let mut r = RECT { left: x + s(4), top: y + pad + icon + s(6), right: x + cell - s(4), bottom: y + cell - s(2) };
+            DrawTextW(dc, &mut v.items[i].name, &mut r, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX | DT_EDITCONTROL);
         }
-        IntersectClipRect(dc, 0, t, rc.right, rc.bottom);
-        v.scroll = v.scroll.clamp(0, grid::max_scroll(v.items.len(), rc.right, rc.bottom - t, cell));
-        for (i, it) in v.items.iter_mut().enumerate() {
-            let (x, y) = grid::origin(i, rc.right, cell);
-            let y = y + t - v.scroll;
-            if y + cell < t || y > rc.bottom {
-                continue;
-            }
-            let _ = DrawIconEx(dc, x + (cell - icon) / 2, y + icon / 5, it.icon, icon, icon, 0, None, DI_NORMAL);
-            let mut r = RECT { left: x + 2, top: y + icon + icon / 3, right: x + cell - 2, bottom: y + cell };
-            DrawTextW(dc, &mut it.name, &mut r, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX | DT_EDITCONTROL);
+        SelectObject(dc, icons.bmp.into());
+        let ix = |x: i32| x + (cell - icon) / 2;
+        for &(i, x, y) in &cells {
+            let _ = DrawIconEx(dc, ix(x), y + pad, v.items[i].icon, icon, icon, 0, None, DI_NORMAL);
         }
+        let _ = GdiFlush();
+        for &(_, x, y) in &cells {
+            opaque_if_flat(icons.px(), w, (ix(x), y + pad, ix(x) + icon, y + pad + icon));
+        }
+        let fg = color::contrast(f.color);
+        let (full, rad) = ((0, 0, w, ht), s(8) as f32);
+        let mut c = Canvas { px: canvas.px(), w, h: ht };
+        c.rrect(full, rad, premul(f.color, f.alpha), (t, ht), false);
+        c.rrect(full, rad, premul(color::shade(f.color, -28), f.alpha.saturating_add(50)), (0, t), false);
+        c.rrect((0, t - 1, w, t), 0., premul(0xFF_FFFF, 30), (0, ht), false);
+        if let Some(&(_, x, y)) = cells.iter().find(|c| Some(c.0) == v.hover) {
+            c.rrect((x + s(4), y + s(2), x + cell - s(4), y + cell - s(2)), s(6) as f32, premul(0xFF_FFFF, 44), (t, ht), false);
+        }
+        c.layer(icons.px(), (0, 0), None, (t, ht));
+        c.layer(mask.px(), (s(1), s(1)), Some(premul(0xFF_FFFF - fg, 160)), (0, ht));
+        c.layer(mask.px(), (0, 0), Some(premul(fg, 255)), (0, ht));
+        c.rrect(full, rad, premul(0xFF_FFFF, 56), (0, ht), true);
+        #[cfg(debug_assertions)]
+        if let Some(p) = std::env::var_os("RDI_DUMP") {
+            let head = [w.to_le_bytes(), ht.to_le_bytes()].concat();
+            let _ = fs::write(p, [head, canvas.px().iter().flat_map(|v| v.to_le_bytes()).collect()].concat());
+        }
+        SelectObject(dc, canvas.bmp.into());
+        let blend = BLENDFUNCTION { BlendOp: AC_SRC_OVER as u8, BlendFlags: 0, SourceConstantAlpha: 255, AlphaFormat: AC_SRC_ALPHA as u8 };
+        let (pos, size) = (POINT { x: wr.left, y: wr.top }, SIZE { cx: w, cy: ht });
+        let _ =
+            UpdateLayeredWindow(h, None, Some(&pos), Some(&size), Some(dc), Some(&POINT::default()), COLORREF(0), Some(&blend), ULW_ALPHA);
+        SelectObject(dc, old);
+        let _ = DeleteDC(dc);
         Some(())
     });
 }
@@ -399,9 +455,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             };
             return LRESULT(ht as isize);
         }
-        WM_PAINT => paint(h),
-        WM_ERASEBKGND => return LRESULT(1),
-        WM_SIZE => drop(unsafe { InvalidateRect(Some(h), None, false) }),
+        WM_SIZE => render(h),
         WM_WINDOWPOSCHANGING => {
             let p = unsafe { &mut *(lp.0 as *mut WINDOWPOS) };
             p.hwndInsertAfter = HWND_BOTTOM;
@@ -419,10 +473,16 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         WM_NCLBUTTONDBLCLK if wp.0 as u32 == HTCAPTION => update(h, |f| f.rolled ^= true),
         WM_LBUTTONDBLCLK => item_at(h, xy(lp)).iter().for_each(|p| shell::open(p)),
         WM_CONTEXTMENU => context(h),
+        WM_MOUSEMOVE => {
+            let mut tme = TRACKMOUSEEVENT { cbSize: size_of::<TRACKMOUSEEVENT>() as u32, dwFlags: TME_LEAVE, hwndTrack: h, dwHoverTime: 0 };
+            let _ = unsafe { TrackMouseEvent(&mut tme) };
+            hover(h, index_at(h, xy(lp)));
+        }
+        WM_MOUSELEAVE => hover(h, None),
         WM_MOUSEWHEEL => {
             let step = (wp.0 >> 16) as i16 as i32 * scale(h, CELL) / 120;
             with(|a| a.view(h).map(|v| v.scroll -= step));
-            let _ = unsafe { InvalidateRect(Some(h), None, false) };
+            render(h);
         }
         WM_DROPFILES => drop_files(h, HDROP(wp.0 as _)),
         WM_ACTIVATE if wp.0 as u32 & 0xFFFF != WA_INACTIVE => reload(h),

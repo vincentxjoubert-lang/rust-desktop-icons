@@ -49,6 +49,7 @@ pub struct View {
     pub items: Vec<Item>,
     pub scroll: i32,
     pub edit: Option<HWND>,
+    pub hover: Option<usize>,
 }
 
 pub struct App {
@@ -79,29 +80,31 @@ impl App {
         self.cfg.fences.iter_mut().find(|f| f.id == id)
     }
 
-    pub fn font(&mut self, px: i32) -> HFONT {
-        if let Some(&(_, f)) = self.fonts.iter().find(|(p, _)| *p == px) {
+    pub fn font(&mut self, px: i32, bold: bool) -> HFONT {
+        let key = px * 2 + bold as i32;
+        if let Some(&(_, f)) = self.fonts.iter().find(|(k, _)| *k == key) {
             return f;
         }
+        let weight = if bold { FW_SEMIBOLD } else { FW_NORMAL };
         let f = unsafe {
             CreateFontW(
                 -px,
                 0,
                 0,
                 0,
-                FW_NORMAL.0 as i32,
+                weight.0 as i32,
                 0,
                 0,
                 0,
                 DEFAULT_CHARSET,
                 OUT_DEFAULT_PRECIS,
                 CLIP_DEFAULT_PRECIS,
-                CLEARTYPE_QUALITY,
+                ANTIALIASED_QUALITY,
                 FF_DONTCARE.0 as u32,
                 w!("Segoe UI"),
             )
         };
-        self.fonts.push((px, f));
+        self.fonts.push((key, f));
         f
     }
 
@@ -121,7 +124,8 @@ pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 pub fn run() {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-        let _mutex = CreateMutexW(None, true, w!("Local\\RustDesktopIcons"));
+        let name = if cfg!(debug_assertions) { w!("Local\\RustDesktopIcons.dev") } else { w!("Local\\RustDesktopIcons") };
+        let _mutex = CreateMutexW(None, true, name);
         if GetLastError() == ERROR_ALREADY_EXISTS {
             return;
         }
@@ -305,7 +309,7 @@ pub fn new_fence() {
 
 fn open(f: &Fence) {
     if let Some(h) = fence::create(f) {
-        with(|a| a.views.push(View { hwnd: h, id: f.id, items: vec![], scroll: 0, edit: None }));
+        with(|a| a.views.push(View { hwnd: h, id: f.id, items: vec![], scroll: 0, edit: None, hover: None }));
         fence::reload(h);
     }
 }

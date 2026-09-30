@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/icon.png" width="96" alt="Rust Desktop Icons logo"></p>
+﻿<p align="center"><img src="assets/icon.png" width="96" alt="Rust Desktop Icons logo"></p>
 
 <h1 align="center">Rust Desktop Icons</h1>
 <p align="center"><b>An open-source alternative to Fences 6, written entirely in Rust.</b><br>
@@ -13,7 +13,8 @@ Group your desktop icons into clean, customizable rectangles, with a tiny memory
 
 ## Features
 
-- **Fences**: semi-transparent rectangles that live on your desktop, behind every window.
+- **Fences**: rounded, semi-transparent rectangles that live on your desktop, behind every window.
+- **Crisp rendering**: per-pixel alpha, so icons and labels stay fully opaque with a soft shadow over a tinted background.
 - **Drag & drop** icons from the desktop into a fence; double-click to open them.
 - **Customizable**: move, resize, rename, color, opacity (30–100 %), roll up to the title bar.
 - **25 languages**, auto-detected from Windows, switchable from the tray menu.
@@ -75,6 +76,7 @@ Releases are built by [GitHub Actions](.github/workflows/release.yml) when a `vX
 | --- | --- |
 | `domain.rs` | Pure model and rules: fences, config validation, layout grid, hit zones, colors |
 | `store.rs` | Config persistence (atomic write) and safe file moves |
+| `render.rs` | Pure pixel compositing: premultiplied alpha, anti-aliased rounded rectangles, layers |
 | `i18n.rs` | 25-language string table and locale resolution |
 | `update.rs` | Release check, download, SHA-256 verification, silent install |
 | `app.rs` | Application state, tray icon and menu, update scheduling |
@@ -85,7 +87,6 @@ Releases are built by [GitHub Actions](.github/workflows/release.yml) when a `vX
 
 - Only items from your own desktop (or another fence) can be dropped in; other locations are ignored.
 - Dragging items out of a fence uses the context menu (**Move to desktop**), not drag & drop.
-- Opacity applies to the whole fence, text included.
 - **Before uninstalling**, delete your fences so their items go back to the desktop. Uninstalling never deletes your
   files: anything left stays in `%LOCALAPPDATA%\RustDesktopIcons\fences`.
 - The fences follow the desktop layer; after an Explorer restart they are recreated automatically.

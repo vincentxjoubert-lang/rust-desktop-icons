@@ -1,4 +1,4 @@
-# Rust Desktop Icons
+﻿# Rust Desktop Icons
 
 Open-source Fences 6 alternative for Windows 10/11: customizable desktop rectangles ("fences") that hold icons.
 
@@ -26,6 +26,9 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - New UI string: add a `T` variant and translate it in all 25 rows of `i18n.rs` (tests check completeness).
 
 ## Gotchas
+- Debug builds use a separate single-instance mutex, so they run beside the installed app. For visual checks, run the debug exe
+  with `LOCALAPPDATA` pointed at a scratch dir (never touch the user's real data) and `RDI_DUMP=<file>` to dump the canvas.
+- Fences are `UpdateLayeredWindow` windows: no WM_PAINT, call `fence::render`; child controls don't show (rename edit is a popup).
 - Fence windows are owned by `Progman` and forced to `HWND_BOTTOM`; Explorer restart → `TaskbarCreated` → `rebuild()`.
 - The updater only accepts URLs under this repo's releases; the MSI asset must have a matching `<name>.msi.sha256`.
 - MSI `UpgradeCode` and component GUIDs must never change.
