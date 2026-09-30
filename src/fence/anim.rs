@@ -2,7 +2,7 @@ use super::{ANIM, layout, paint};
 use crate::{
     app::with,
     domain::anim,
-    win::{next_vblank_ms, now_ms, window_rect},
+    win::{now_ms, window_rect},
 };
 use windows::Win32::{
     Foundation::HWND,
@@ -21,7 +21,7 @@ pub(super) fn animating(h: HWND) -> bool {
 }
 
 pub(super) fn tick(h: HWND) {
-    let t = next_vblank_ms().unwrap_or_else(now_ms);
+    let t = now_ms();
     let Some((f, done, alpha)) = with(|a| {
         let ms = a.cfg.roll_ms;
         let f = a.fence_of(h)?.clone();
@@ -32,6 +32,11 @@ pub(super) fn tick(h: HWND) {
         }
         let unroll = if !f.rolled || (v.inside && !v.hold) { 1. } else { 0. };
         let glow = if !f.look.chameleon || v.inside { 1. } else { 0. };
+        let opening = unroll > v.unroll;
+        if opening != v.opening && v.unroll > 0. && v.unroll < 1. {
+            v.unroll = anim::retarget(v.unroll, v.opening, opening);
+        }
+        v.opening = opening;
         v.unroll = anim::advance(v.unroll, unroll, dt, ms);
         v.glow = anim::advance(v.glow, glow, dt, ms);
         let done = v.unroll == unroll && v.glow == glow;

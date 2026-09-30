@@ -2,7 +2,6 @@ use std::{os::windows::ffi::OsStrExt, path::Path};
 use windows::{
     Win32::{
         Foundation::*,
-        Graphics::Dwm::{DWM_TIMING_INFO, DwmGetCompositionTimingInfo},
         Graphics::Gdi::{GetMonitorInfoW, HBITMAP, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect},
         System::{
             LibraryLoader::GetModuleHandleW,
@@ -83,12 +82,6 @@ pub fn now_ms() -> f64 {
     let mut t = 0i64;
     let _ = unsafe { QueryPerformanceCounter(&mut t) };
     qpc_ms(t)
-}
-
-pub fn next_vblank_ms() -> Option<f64> {
-    let mut info = DWM_TIMING_INFO { cbSize: size_of::<DWM_TIMING_INFO>() as u32, ..Default::default() };
-    unsafe { DwmGetCompositionTimingInfo(HWND::default(), &mut info) }.ok()?;
-    (info.qpcRefreshPeriod > 0).then(|| qpc_ms((info.qpcVBlank + info.qpcRefreshPeriod) as i64))
 }
 
 pub fn sys_scale(v: i32) -> i32 {

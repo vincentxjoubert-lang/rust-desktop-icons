@@ -8,8 +8,8 @@ use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 const MARGIN: i32 = 16;
 
-fn progress(h: HWND, f: &Fence) -> f32 {
-    with(|a| a.view(h).map(|v| v.unroll)).flatten().unwrap_or(if f.rolled { 0. } else { 1. })
+fn progress(h: HWND, f: &Fence) -> (f32, bool) {
+    with(|a| a.view(h).map(|v| (v.unroll, v.opening))).flatten().unwrap_or((if f.rolled { 0. } else { 1. }, false))
 }
 
 pub(super) fn full(h: HWND, f: &Fence) -> i32 {
@@ -22,7 +22,8 @@ pub(super) fn full(h: HWND, f: &Fence) -> i32 {
 }
 
 pub(super) fn height(h: HWND, f: &Fence) -> i32 {
-    anim::height(scale(h, TITLE), full(h, f), progress(h, f))
+    let (p, opening) = progress(h, f);
+    anim::height(scale(h, TITLE), full(h, f), p, opening)
 }
 
 pub(super) fn self_sized(h: HWND, f: impl FnOnce()) {
@@ -61,7 +62,7 @@ pub(super) fn persist(h: HWND) {
 pub(super) fn hit(h: HWND, lp: LPARAM) -> u32 {
     let (r, (x, y)) = (window_rect(h), xy(lp));
     let f = fence_of(h);
-    let folded = f.as_ref().is_some_and(|f| progress(h, f) < 1.);
+    let folded = f.as_ref().is_some_and(|f| progress(h, f).0 < 1.);
     let z = zone((r.right - r.left, r.bottom - r.top), (x - r.left, y - r.top), scale(h, BORDER), scale(h, TITLE), folded);
     let z = match f {
         Some(f) if f.locked => z.fixed(),

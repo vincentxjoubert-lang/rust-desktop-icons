@@ -14,8 +14,26 @@ pub fn ease(p: f32) -> f32 {
     p * p * (3. - 2. * p)
 }
 
-pub fn height(title: i32, full: i32, p: f32) -> i32 {
-    title + ((full - title).max(0) as f32 * ease(p)).round() as i32
+pub fn ease_out(p: f32) -> f32 {
+    1. - (1. - p).powi(3)
+}
+
+fn curve(p: f32, opening: bool) -> f32 {
+    if opening { ease_out(p) } else { ease(p) }
+}
+
+pub fn retarget(p: f32, from: bool, to: bool) -> f32 {
+    let e = curve(p, from);
+    let (mut lo, mut hi) = (0f32, 1f32);
+    for _ in 0..24 {
+        let mid = (lo + hi) / 2.;
+        if curve(mid, to) < e { lo = mid } else { hi = mid }
+    }
+    (lo + hi) / 2.
+}
+
+pub fn height(title: i32, full: i32, p: f32, opening: bool) -> i32 {
+    title + ((full - title).max(0) as f32 * curve(p, opening)).round() as i32
 }
 
 pub fn opacity(glow: f32) -> u8 {
@@ -32,8 +50,19 @@ mod tests {
         assert_eq!(advance(0.9, 1., 220., 220), 1.);
         assert_eq!(advance(0.1, 0., 220., 220), 0.);
         assert_eq!(advance(0.3, 1., 1., 0), 1.);
-        assert_eq!((height(34, 400, 0.), height(34, 400, 1.), height(34, 400, 0.5)), (34, 400, 217));
-        assert!(height(34, 400, 0.1) - 34 < 40);
+        assert_eq!((height(34, 400, 0., false), height(34, 400, 1., false), height(34, 400, 0.5, false)), (34, 400, 217));
+        assert!(height(34, 400, 0.1, false) - 34 < 40);
+    }
+
+    #[test]
+    fn opening_starts_fast_and_reversal_is_continuous() {
+        assert!(height(34, 400, 0.1, true) - 34 > 90);
+        assert_eq!((height(34, 400, 0., true), height(34, 400, 1., true)), (34, 400));
+        for p in [0.1, 0.3, 0.5, 0.8] {
+            let q = retarget(p, true, false);
+            assert!((curve(p, true) - curve(q, false)).abs() < 1e-4, "p={p}");
+            assert!((retarget(q, false, true) - p).abs() < 1e-3);
+        }
     }
 
     #[test]
