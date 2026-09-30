@@ -50,6 +50,7 @@ pub struct View {
     pub scroll: i32,
     pub edit: Option<HWND>,
     pub hover: Option<usize>,
+    pub watch: Option<shell::Watch>,
 }
 
 pub struct App {
@@ -80,19 +81,18 @@ impl App {
         self.cfg.fences.iter_mut().find(|f| f.id == id)
     }
 
-    pub fn font(&mut self, px: i32, bold: bool) -> HFONT {
-        let key = px * 2 + bold as i32;
+    pub fn font(&mut self, px: i32, weight: u32) -> HFONT {
+        let key = px * 1000 + weight as i32;
         if let Some(&(_, f)) = self.fonts.iter().find(|(k, _)| *k == key) {
             return f;
         }
-        let weight = if bold { FW_SEMIBOLD } else { FW_NORMAL };
         let f = unsafe {
             CreateFontW(
                 -px,
                 0,
                 0,
                 0,
-                weight.0 as i32,
+                weight as i32,
                 0,
                 0,
                 0,
@@ -161,8 +161,9 @@ pub fn run() {
 fn tray_icon(h: HWND, op: NOTIFY_ICON_MESSAGE) {
     unsafe {
         let size = GetSystemMetrics(SM_CXSMICON);
-        let icon =
-            LoadImageW(Some(inst()), PCWSTR(1 as _), IMAGE_ICON, size, size, LR_DEFAULTCOLOR).map(|i| HICON(i.0)).unwrap_or_default();
+        let icon = LoadImageW(Some(inst()), PCWSTR(1 as _), IMAGE_ICON, size, size, LR_DEFAULTCOLOR | LR_SHARED)
+            .map(|i| HICON(i.0))
+            .unwrap_or_default();
         let mut nid = NOTIFYICONDATAW {
             cbSize: size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: h,
@@ -309,7 +310,10 @@ pub fn new_fence() {
 
 fn open(f: &Fence) {
     if let Some(h) = fence::create(f) {
-        with(|a| a.views.push(View { hwnd: h, id: f.id, items: vec![], scroll: 0, edit: None, hover: None }));
+        let dir = store::fence_dir(f.id);
+        let _ = std::fs::create_dir_all(&dir);
+        let watch = shell::Watch::new(h, &dir, fence::WM_CHANGED);
+        with(|a| a.views.push(View { hwnd: h, id: f.id, items: vec![], scroll: 0, edit: None, hover: None, watch }));
         fence::reload(h);
     }
 }

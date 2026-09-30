@@ -14,7 +14,8 @@ Group your desktop icons into clean, customizable rectangles, with a tiny memory
 ## Features
 
 - **Fences**: rounded, semi-transparent rectangles that live on your desktop, behind every window.
-- **Crisp rendering**: per-pixel alpha, so icons and labels stay fully opaque with a soft shadow over a tinted background.
+- **Modern look**: per-pixel transparency with a subtle gradient, 48 px icons, bold labels with a soft blurred shadow, hover highlight and a slim scrollbar.
+- **Smooth**: moving or resizing never reloads icons; fences refresh only when their folder changes.
 - **Drag & drop** icons from the desktop into a fence; double-click to open them.
 - **Customizable**: move, resize, rename, color, opacity (30–100 %), roll up to the title bar.
 - **25 languages**, auto-detected from Windows, switchable from the tray menu.

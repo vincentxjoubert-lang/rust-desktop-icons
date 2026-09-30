@@ -28,6 +28,9 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 ## Gotchas
 - Debug builds use a separate single-instance mutex, so they run beside the installed app. For visual checks, run the debug exe
   with `LOCALAPPDATA` pointed at a scratch dir (never touch the user's real data) and `RDI_DUMP=<file>` to dump the canvas.
+- Background blur was tried and rejected (v0.3): DWM system backdrops go solid on inactive windows, and the
+  undocumented SetWindowCompositionAttribute accent rendered opaque black with GDI content. Keep the layered path.
+- Debug `RDI_TOP=1` makes fences topmost and unowned so screenshots can capture them.
 - Fences are `UpdateLayeredWindow` windows: no WM_PAINT, call `fence::render`; child controls don't show (rename edit is a popup).
 - Fence windows are owned by `Progman` and forced to `HWND_BOTTOM`; Explorer restart → `TaskbarCreated` → `rebuild()`.
 - The updater only accepts URLs under this repo's releases; the MSI asset must have a matching `<name>.msi.sha256`.

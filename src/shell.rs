@@ -5,11 +5,13 @@ use std::{
 };
 use windows::{
     Win32::{
+        Foundation::HWND,
         Globalization::GetUserDefaultLocaleName,
         Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES,
         System::{Com::CoTaskMemFree, Registry::*},
         UI::{
-            Shell::*,
+            Controls::{IImageList, ILD_TRANSPARENT},
+            Shell::{Common::ITEMIDLIST, *},
             WindowsAndMessaging::{HICON, SW_SHOWNORMAL},
         },
     },
@@ -37,17 +39,11 @@ pub fn desktop() -> Option<PathBuf> {
 pub fn info(p: &Path) -> (HICON, Vec<u16>) {
     let mut i = SHFILEINFOW::default();
     let w = wide_path(p);
-    unsafe {
-        SHGetFileInfoW(
-            PCWSTR(w.as_ptr()),
-            FILE_FLAGS_AND_ATTRIBUTES(0),
-            Some(&mut i),
-            size_of::<SHFILEINFOW>() as u32,
-            SHGFI_ICON | SHGFI_LARGEICON | SHGFI_DISPLAYNAME,
-        )
-    };
+    let flags = SHGFI_SYSICONINDEX | SHGFI_DISPLAYNAME;
+    unsafe { SHGetFileInfoW(PCWSTR(w.as_ptr()), FILE_FLAGS_AND_ATTRIBUTES(0), Some(&mut i), size_of::<SHFILEINFOW>() as u32, flags) };
     let n = i.szDisplayName.iter().position(|&c| c == 0).unwrap_or(i.szDisplayName.len());
-    (i.hIcon, i.szDisplayName[..n].to_vec())
+    let icon = unsafe { SHGetImageList::<IImageList>(SHIL_EXTRALARGE as i32).and_then(|l| l.GetIcon(i.iIcon, ILD_TRANSPARENT.0)) };
+    (icon.unwrap_or_default(), i.szDisplayName[..n].to_vec())
 }
 
 pub fn open(p: &Path) {
@@ -64,5 +60,35 @@ pub fn set_autostart(on: bool) {
         let Ok(exe) = env::current_exe() else { return };
         let v = wide(&format!("\"{}\"", exe.display()));
         let _ = RegSetKeyValueW(HKEY_CURRENT_USER, RUN, NAME, REG_SZ.0, Some(v.as_ptr().cast()), (v.len() * 2) as u32);
+    }
+}
+
+pub struct Watch(u32, *mut ITEMIDLIST);
+
+impl Watch {
+    pub fn new(h: HWND, dir: &Path, msg: u32) -> Option<Self> {
+        let w = wide_path(dir);
+        unsafe {
+            let pidl = ILCreateFromPathW(PCWSTR(w.as_ptr()));
+            if pidl.is_null() {
+                return None;
+            }
+            let entry = SHChangeNotifyEntry { pidl, fRecursive: false.into() };
+            let id = SHChangeNotifyRegister(h, SHCNRF_ShellLevel | SHCNRF_InterruptLevel, SHCNE_ALLEVENTS.0 as i32, msg, 1, &entry);
+            if id == 0 {
+                ILFree(Some(pidl));
+                return None;
+            }
+            Some(Self(id, pidl))
+        }
+    }
+}
+
+impl Drop for Watch {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = SHChangeNotifyDeregister(self.0);
+            ILFree(Some(self.1));
+        }
     }
 }

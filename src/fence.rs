@@ -2,7 +2,7 @@ use crate::{
     app::{Item, with},
     domain::{Fence, Zone, color, grid, zone},
     i18n::T,
-    render::{Canvas, opaque_if_flat, premul},
+    render::{Canvas, blur, flat, opaque_if_flat, premul},
     shell, store,
     win::*,
 };
@@ -22,12 +22,14 @@ use windows::{
 };
 
 pub const CLASS: PCWSTR = w!("RustDesktopIcons.Fence");
-const TITLE: i32 = 30;
-const CELL: i32 = 86;
-const ICON: i32 = 32;
+pub const WM_CHANGED: u32 = WM_APP + 10;
+const TITLE: i32 = 34;
+const CELL: i32 = 104;
+const ICON: i32 = 48;
 const BORDER: i32 = 6;
 const EN_KILLFOCUS: u32 = 0x0200;
 const WM_MOUSELEAVE: u32 = 0x02A3;
+const WHITE: u32 = 0xFF_FFFF;
 
 fn xy(lp: LPARAM) -> (i32, i32) {
     (lp.0 as i16 as i32, (lp.0 >> 16) as i16 as i32)
@@ -61,24 +63,20 @@ fn update(h: HWND, f: impl FnOnce(&mut Fence)) {
     apply(h);
 }
 
+fn top() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("RDI_TOP").is_some()
+}
+
 pub fn create(f: &Fence) -> Option<HWND> {
     unsafe {
-        let owner = FindWindowW(w!("Progman"), None).ok();
-        let h = CreateWindowExW(
-            WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_ACCEPTFILES,
-            CLASS,
-            PCWSTR::null(),
-            WS_POPUP,
-            f.x,
-            f.y,
-            f.w,
-            f.h,
-            owner,
-            None,
-            Some(inst()),
-            None,
-        )
-        .ok()?;
+        let r = RECT { left: f.x, top: f.y, right: f.x + f.w, bottom: f.y + f.h };
+        let (x, y) = if MonitorFromRect(&r, MONITOR_DEFAULTTONULL).is_invalid() { (100, 100) } else { (f.x, f.y) };
+        let owner = if top() { None } else { FindWindowW(w!("Progman"), None).ok() };
+        let ex = WS_EX_TOOLWINDOW | WS_EX_ACCEPTFILES | WS_EX_LAYERED;
+        let h = CreateWindowExW(ex, CLASS, PCWSTR::null(), WS_POPUP, x, y, f.w, f.h, owner, None, Some(inst()), None).ok()?;
+        if top() {
+            let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
         let _ = ShowWindow(h, SW_SHOWNOACTIVATE);
         Some(h)
     }
@@ -125,17 +123,17 @@ pub fn key(msg: &MSG) -> bool {
 }
 
 fn rename(h: HWND) {
-    let px = scale(h, 14);
+    let px = scale(h, 15);
     let Some((title, font)) = with(|a| {
         let id = a.view(h)?.id;
         let title = a.fence(id)?.title.clone();
-        Some((title, a.font(px, true)))
+        Some((title, a.font(px, FW_BOLD.0)))
     })
     .flatten() else {
         return;
     };
-    let (r, t, pad) = (client(h), scale(h, TITLE), scale(h, 4));
-    let mut p = POINT { x: pad, y: pad / 2 };
+    let (r, t, pad) = (client(h), scale(h, TITLE), scale(h, 5));
+    let mut p = POINT { x: pad, y: pad };
     unsafe {
         let _ = ClientToScreen(h, &mut p);
         let style = WS_POPUP | WS_VISIBLE | WS_BORDER | WINDOW_STYLE((ES_CENTER | ES_AUTOHSCROLL) as u32);
@@ -147,7 +145,7 @@ fn rename(h: HWND) {
             p.x,
             p.y,
             r.right - 2 * pad,
-            t - pad,
+            t - 2 * pad,
             Some(h),
             None,
             Some(inst()),
@@ -205,7 +203,10 @@ fn delete(h: HWND, f: &Fence) {
             let _ = store::move_into(&e.path(), &desk);
         }
     }
+    with(|a| a.view(h).map(|v| v.watch = None));
     if fs::remove_dir(&dir).is_err() && dir.exists() {
+        let watch = shell::Watch::new(h, &dir, WM_CHANGED);
+        with(|a| a.view(h).map(|v| v.watch = watch));
         return reload(h);
     }
     with(|a| {
@@ -220,7 +221,7 @@ fn index_at(h: HWND, (x, y): (i32, i32)) -> Option<usize> {
     let (w, t, cell) = (client(h).right, scale(h, TITLE), scale(h, CELL));
     with(|a| {
         let v = a.view(h)?;
-        (y >= t).then(|| grid::index_at((x, y - t + v.scroll), w, cell, v.items.len()))?
+        (y >= t).then(|| grid::index_at((x, y - t - scale(h, 4) + v.scroll), w, cell, v.items.len()))?
     })
     .flatten()
 }
@@ -272,11 +273,7 @@ fn context(h: HWND) {
         10 => rename(h),
         11 => pick_color(h, &f),
         12 => update(h, |f| f.rolled ^= true),
-        13 => {
-            let d = store::fence_dir(f.id);
-            let _ = fs::create_dir_all(&d);
-            shell::open(&d);
-        }
+        13 => shell::open(&store::fence_dir(f.id)),
         14 => delete(h, &f),
         15 => crate::app::new_fence(),
         k @ 20..=27 => update(h, |f| f.alpha = opacity(k as u8 - 20)),
@@ -356,33 +353,34 @@ pub fn render(h: HWND) {
     unsafe { GetWindowRect(h, &mut wr).ok() };
     let (w, ht) = (wr.right - wr.left, wr.bottom - wr.top);
     let s = |v| scale(h, v);
-    let (t, cell, icon, pad) = (s(TITLE), s(CELL), s(ICON), s(8));
+    let (t, cell, icon, pad, top_gap) = (s(TITLE), s(CELL), s(ICON), s(10), s(4));
     let (Some(mut canvas), Some(mut icons), Some(mut mask)) = (Dib::new(w, ht), Dib::new(w, ht), Dib::new(w, ht)) else {
         return;
     };
     with(|a| unsafe {
-        let (ft, fi) = (a.font(s(14), true), a.font(s(12), false));
+        let (ft, fi) = (a.font(s(15), FW_BOLD.0), a.font(s(13), FW_SEMIBOLD.0));
         let id = a.view(h)?.id;
         let f = a.fence(id)?.clone();
         let v = a.view(h)?;
         let dc = CreateCompatibleDC(None);
         let old = SelectObject(dc, mask.bmp.into());
         SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, COLORREF(0xFF_FFFF));
+        SetTextColor(dc, COLORREF(WHITE));
         SelectObject(dc, ft.into());
         let mut title: Vec<u16> = f.title.encode_utf16().collect();
         let flags = DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX;
         DrawTextW(dc, &mut title, &mut RECT { left: t / 2, top: 0, right: w - t / 2, bottom: t }, flags);
-        v.scroll = v.scroll.clamp(0, grid::max_scroll(v.items.len(), w, ht - t, cell));
+        let max = if f.rolled { 0 } else { grid::max_scroll(v.items.len(), w, ht - t - top_gap, cell) };
+        v.scroll = v.scroll.clamp(0, max);
         let cells: Vec<(usize, i32, i32)> = (0..if f.rolled { 0 } else { v.items.len() })
             .map(|i| (i, grid::origin(i, w, cell)))
-            .map(|(i, (x, y))| (i, x, y + t + s(4) - v.scroll))
+            .map(|(i, (x, y))| (i, x, y + t + top_gap - v.scroll))
             .filter(|&(_, _, y)| y + cell > t && y < ht)
             .collect();
         SelectObject(dc, fi.into());
         IntersectClipRect(dc, 0, t, w, ht);
         for &(i, x, y) in &cells {
-            let mut r = RECT { left: x + s(4), top: y + pad + icon + s(6), right: x + cell - s(4), bottom: y + cell - s(2) };
+            let mut r = RECT { left: x + s(5), top: y + pad + icon + s(6), right: x + cell - s(5), bottom: y + cell };
             DrawTextW(dc, &mut v.items[i].name, &mut r, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX | DT_EDITCONTROL);
         }
         SelectObject(dc, icons.bmp.into());
@@ -394,19 +392,44 @@ pub fn render(h: HWND) {
         for &(_, x, y) in &cells {
             opaque_if_flat(icons.px(), w, (ix(x), y + pad, ix(x) + icon, y + pad + icon));
         }
+        let body = f.alpha;
         let fg = color::contrast(f.color);
-        let (full, rad) = ((0, 0, w, ht), s(8) as f32);
+        let shade = if fg == WHITE || fg > 0x80_8080 { 0 } else { WHITE };
+        let (full, rad, rows) = ((0, 0, w, ht), s(8) as f32, (0, ht));
+        let soft = blur(mask.px(), w, ht, s(2));
         let mut c = Canvas { px: canvas.px(), w, h: ht };
-        c.rrect(full, rad, premul(f.color, f.alpha), (t, ht), false);
-        c.rrect(full, rad, premul(color::shade(f.color, -28), f.alpha.saturating_add(50)), (0, t), false);
-        c.rrect((0, t - 1, w, t), 0., premul(0xFF_FFFF, 30), (0, ht), false);
+        c.rrect(
+            full,
+            rad,
+            (premul(color::shade(f.color, 10), body), premul(color::shade(f.color, -14), body.saturating_add(20))),
+            (t, ht),
+            false,
+        );
+        c.rrect(
+            (0, 0, w, t + s(16)),
+            rad,
+            (premul(color::shade(f.color, -20), body.saturating_add(50)), premul(color::shade(f.color, -34), body.saturating_add(60))),
+            (0, t),
+            false,
+        );
+        c.rrect((s(12), t - 1, w - s(12), t), 0., flat(premul(WHITE, 34)), rows, false);
         if let Some(&(_, x, y)) = cells.iter().find(|c| Some(c.0) == v.hover) {
-            c.rrect((x + s(4), y + s(2), x + cell - s(4), y + cell - s(2)), s(6) as f32, premul(0xFF_FFFF, 44), (t, ht), false);
+            let r = (x + s(5), y + s(3), x + cell - s(5), y + cell - s(1));
+            c.rrect(r, s(8) as f32, flat(premul(WHITE, 40)), (t, ht), false);
+            c.rrect(r, s(8) as f32, flat(premul(WHITE, 60)), (t, ht), true);
         }
         c.layer(icons.px(), (0, 0), None, (t, ht));
-        c.layer(mask.px(), (s(1), s(1)), Some(premul(0xFF_FFFF - fg, 160)), (0, ht));
-        c.layer(mask.px(), (0, 0), Some(premul(fg, 255)), (0, ht));
-        c.rrect(full, rad, premul(0xFF_FFFF, 56), (0, ht), true);
+        c.layer(&soft, (0, s(1)), Some(premul(shade, 255)), rows);
+        c.layer(&soft, (0, s(1)), Some(premul(shade, 200)), rows);
+        c.layer(mask.px(), (0, s(1)), Some(premul(shade, 150)), rows);
+        c.layer(mask.px(), (0, 0), Some(premul(fg, 255)), rows);
+        if max > 0 {
+            let avail = ht - t;
+            let th = (avail * avail / (avail + max)).max(s(24));
+            let ty = t + v.scroll * (avail - th) / max;
+            c.rrect((w - s(7), ty + s(3), w - s(3), ty + th - s(3)), s(2) as f32, flat(premul(WHITE, 110)), (t, ht), false);
+        }
+        c.rrect(full, rad, flat(premul(WHITE, 48)), rows, true);
         #[cfg(debug_assertions)]
         if let Some(p) = std::env::var_os("RDI_DUMP") {
             let head = [w.to_le_bytes(), ht.to_le_bytes()].concat();
@@ -455,11 +478,13 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             };
             return LRESULT(ht as isize);
         }
+        WM_MOUSEACTIVATE => return LRESULT(MA_NOACTIVATE as isize),
         WM_SIZE => render(h),
         WM_WINDOWPOSCHANGING => {
             let p = unsafe { &mut *(lp.0 as *mut WINDOWPOS) };
-            p.hwndInsertAfter = HWND_BOTTOM;
-            p.flags &= !SWP_NOZORDER;
+            if (p.flags & SWP_NOZORDER).0 == 0 && !top() {
+                p.hwndInsertAfter = HWND_BOTTOM;
+            }
         }
         WM_GETMINMAXINFO => {
             let i = unsafe { &mut *(lp.0 as *mut MINMAXINFO) };
@@ -485,7 +510,13 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             render(h);
         }
         WM_DROPFILES => drop_files(h, HDROP(wp.0 as _)),
-        WM_ACTIVATE if wp.0 as u32 & 0xFFFF != WA_INACTIVE => reload(h),
+        WM_CHANGED => {
+            unsafe { SetTimer(Some(h), 1, 150, None) };
+        }
+        WM_TIMER if wp.0 == 1 => {
+            let _ = unsafe { KillTimer(Some(h), 1) };
+            reload(h);
+        }
         WM_COMMAND if (wp.0 >> 16) as u32 == EN_KILLFOCUS => finish(h, true),
         _ => return unsafe { DefWindowProcW(h, m, wp, lp) },
     }
