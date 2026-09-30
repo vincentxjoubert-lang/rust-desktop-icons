@@ -14,11 +14,12 @@ pub struct Look {
     pub icon: i32,
     pub tint: Option<u32>,
     pub chameleon: bool,
+    pub auto_height: bool,
 }
 
 impl Default for Look {
     fn default() -> Self {
-        Self { color: 0x302820, alpha: 217, icon: icons::DEFAULT, tint: None, chameleon: false }
+        Self { color: 0x302820, alpha: 217, icon: icons::DEFAULT, tint: None, chameleon: false, auto_height: true }
     }
 }
 
@@ -200,7 +201,7 @@ mod tests {
             .unwrap()
             .sanitized();
         let f = &c.fences[0];
-        assert!(c.auto_update && c.autostart && c.auto_sort);
+        assert!(c.auto_update && c.autostart && c.auto_sort && f.look.auto_height);
         assert_eq!((f.w, f.look.color, f.look.icon, f.tabs.len(), f.active().title.as_str()), (360, 255, 48, 1, "Jeux"));
         assert_eq!(c.roll_ms, 500);
     }

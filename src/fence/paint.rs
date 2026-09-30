@@ -1,4 +1,4 @@
-use super::{TITLE, cell, header, label_font, metrics, title_font};
+use super::{TITLE, cell, fence_of, header, label_font, layout, metrics, title_font};
 use crate::{
     app::with,
     domain::{anim, color, grid},
@@ -16,12 +16,13 @@ pub fn render(h: HWND) {
     let (Some(mut frame), Some(mut icons)) = (Frame::new(w, ht), Dib::new(w, ht)) else {
         return;
     };
+    let full = fence_of(h).map_or(ht, |f| layout::full(h, &f));
     with(|a| unsafe {
         let (ft, fi) = (title_font(a, h), label_font(a, h));
         let f = a.fence_of(h)?.clone();
         let v = a.view(h)?;
         let rolled = v.unroll == 0.;
-        let body_h = if v.unroll < 1. { f.h } else { ht };
+        let body_h = if v.unroll < 1. { full } else { ht };
         header::text(&frame, ft, &f, t, s(8));
         let max = if rolled { 0 } else { grid::max_scroll(v.items.len(), w, body_h - t - top_gap, cell) };
         v.scroll = v.scroll.clamp(0, max);
@@ -53,7 +54,7 @@ pub fn render(h: HWND) {
         let tone = |k, a: u8| premul(color::shade(f.look.color, k), a);
         let mut c = frame.canvas();
         c.rrect(full, rad, (tone(10, body), tone(-14, body.saturating_add(20))), (t, ht), false);
-        header::shapes(&mut c, &f, t, s);
+        header::shapes(&mut c, &f, (!rolled).then_some(f.tab), t, s);
         for &(i, x, y) in &cells {
             let (sel, hot) = (v.selected.contains(&v.items[i].path), v.hover == Some(i));
             if sel || hot {

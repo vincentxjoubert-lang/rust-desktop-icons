@@ -10,7 +10,12 @@
     <Property Id="SHORTCUTOFF">
       <RegistrySearch Id="ShortcutOff" Root="HKCU" Key="Software\RustDesktopIcons" Name="NoDesktopShortcut" Type="raw" />
     </Property>
-    <SetProperty Id="DESKTOPSHORTCUT" Value="1" After="AppSearch" Sequence="both" Condition="NOT SHORTCUTOFF" />
+    <Property Id="SHORTCUTEXISTS">
+      <DirectorySearch Id="DesktopSearch" Path="[DesktopFolder]" Depth="0">
+        <FileSearch Name="Rust Desktop Icons.lnk" />
+      </DirectorySearch>
+    </Property>
+    <SetProperty Id="DESKTOPSHORTCUT" Value="1" After="AppSearch" Sequence="both" Condition="SHORTCUTEXISTS OR (NOT WIX_UPGRADE_DETECTED AND NOT SHORTCUTOFF)" />
 
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ProgramsDir" Name="Programs">

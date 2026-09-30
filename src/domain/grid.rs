@@ -25,6 +25,11 @@ pub fn max_scroll(n: usize, w: i32, h: i32, cell: i32) -> i32 {
     ((n as i32 + c - 1) / c * cell - h).max(0)
 }
 
+pub fn fit(n: usize, w: i32, cell: i32, chrome: i32, (min, max): (i32, i32)) -> i32 {
+    let rows = (n as i32 + cols(w, cell) - 1) / cols(w, cell);
+    (chrome + rows.max(1) * cell).clamp(min, max.max(min))
+}
+
 pub fn split(w: i32, n: usize, x: i32) -> Option<usize> {
     let n = n.max(1) as i32;
     (0..w).contains(&x).then(|| (x * n / w.max(1)) as usize)
@@ -53,6 +58,15 @@ mod tests {
         assert_eq!(index_at((2, 10), 250, 80, 5), None);
         assert_eq!(max_scroll(7, 250, 100, 80), 140);
         assert_eq!(max_scroll(1, 250, 100, 80), 0);
+    }
+
+    #[test]
+    fn auto_height() {
+        assert_eq!(fit(5, 250, 80, 50, (80, 1000)), 50 + 2 * 80);
+        assert_eq!(fit(0, 250, 80, 50, (80, 1000)), 50 + 80);
+        assert_eq!(fit(6, 250, 80, 50, (80, 1000)), 50 + 2 * 80);
+        assert_eq!(fit(40, 250, 80, 50, (80, 500)), 500);
+        assert_eq!(fit(1, 250, 10, 5, (80, 500)), 80);
     }
 
     #[test]

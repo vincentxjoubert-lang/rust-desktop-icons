@@ -36,6 +36,7 @@ pub(super) fn context(h: HWND) {
         a.sub(m, T::Tint, tint, g::TINT);
         arrange::submenus(a, m, f.active());
         a.entry(m, 16, T::Chameleon, f.look.chameleon, g::EYE);
+        a.entry(m, 18, T::AutoHeight, f.look.auto_height, g::HEIGHT);
         a.entry(m, 12, T::Roll, f.rolled, g::ROLL);
         separator(m);
         a.entry(m, 60, T::NewTab, false, g::TAB);
@@ -68,6 +69,7 @@ pub(super) fn context(h: HWND) {
             super::anim::start(h);
         }
         17 => settings::open(),
+        18 => update(h, |f| f.look.auto_height ^= true),
         k @ 20..=27 => update(h, |f| f.look.alpha = Look::alpha_for(Look::PERCENTS[k - 20])),
         k @ 40..=47 => items::set_icon(h, icons::SIZES[k - 40]),
         50 => update(h, |f| f.look.tint = None),

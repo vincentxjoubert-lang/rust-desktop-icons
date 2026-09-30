@@ -51,6 +51,7 @@ pub static S: [[&str; N]; 25] = [
         "Type",
         "Date modified",
         "Custom order",
+        "Automatic height",
     ],
     [
         "新建分区",
@@ -102,6 +103,7 @@ pub static S: [[&str; N]; 25] = [
         "类型",
         "修改日期",
         "自定义顺序",
+        "自动高度",
     ],
     [
         "नया क्षेत्र",
@@ -153,6 +155,7 @@ pub static S: [[&str; N]; 25] = [
         "प्रकार",
         "संशोधन तिथि",
         "कस्टम क्रम",
+        "स्वचालित ऊँचाई",
     ],
     [
         "Nueva zona",
@@ -204,6 +207,7 @@ pub static S: [[&str; N]; 25] = [
         "Tipo",
         "Fecha de modificación",
         "Orden personalizado",
+        "Altura automática",
     ],
     [
         "Nouvelle zone",
@@ -255,6 +259,7 @@ pub static S: [[&str; N]; 25] = [
         "Type",
         "Date de modification",
         "Ordre personnalisé",
+        "Hauteur automatique",
     ],
     [
         "منطقة جديدة",
@@ -306,6 +311,7 @@ pub static S: [[&str; N]; 25] = [
         "النوع",
         "تاريخ التعديل",
         "ترتيب مخصص",
+        "ارتفاع تلقائي",
     ],
     [
         "নতুন অঞ্চল",
@@ -357,6 +363,7 @@ pub static S: [[&str; N]; 25] = [
         "ধরন",
         "পরিবর্তনের তারিখ",
         "নিজস্ব ক্রম",
+        "স্বয়ংক্রিয় উচ্চতা",
     ],
     [
         "Nova área",
@@ -408,6 +415,7 @@ pub static S: [[&str; N]; 25] = [
         "Tipo",
         "Data de modificação",
         "Ordem personalizada",
+        "Altura automática",
     ],
     [
         "Новая область",
@@ -459,6 +467,7 @@ pub static S: [[&str; N]; 25] = [
         "Тип",
         "Дата изменения",
         "Свой порядок",
+        "Автоматическая высота",
     ],
     [
         "نیا خطہ",
@@ -510,6 +519,7 @@ pub static S: [[&str; N]; 25] = [
         "قسم",
         "تبدیلی کی تاریخ",
         "اپنی ترتیب",
+        "خودکار اونچائی",
     ],
     [
         "Area baru",
@@ -561,6 +571,7 @@ pub static S: [[&str; N]; 25] = [
         "Jenis",
         "Tanggal diubah",
         "Urutan kustom",
+        "Tinggi otomatis",
     ],
     [
         "Neuer Bereich",
@@ -612,6 +623,7 @@ pub static S: [[&str; N]; 25] = [
         "Typ",
         "Änderungsdatum",
         "Eigene Reihenfolge",
+        "Automatische Höhe",
     ],
     [
         "新しいフェンス",
@@ -663,6 +675,7 @@ pub static S: [[&str; N]; 25] = [
         "種類",
         "更新日時",
         "カスタム順",
+        "高さを自動調整",
     ],
     [
         "Eneo jipya",
@@ -714,6 +727,7 @@ pub static S: [[&str; N]; 25] = [
         "Aina",
         "Tarehe ya kubadilishwa",
         "Mpangilio maalum",
+        "Urefu wa kiotomatiki",
     ],
     [
         "नवीन क्षेत्र",
@@ -765,6 +779,7 @@ pub static S: [[&str; N]; 25] = [
         "प्रकार",
         "सुधारणा दिनांक",
         "सानुकूल क्रम",
+        "स्वयंचलित उंची",
     ],
     [
         "కొత్త ప్రాంతం",
@@ -816,6 +831,7 @@ pub static S: [[&str; N]; 25] = [
         "రకం",
         "సవరించిన తేదీ",
         "అనుకూల క్రమం",
+        "స్వయంచాలక ఎత్తు",
     ],
     [
         "Yeni alan",
@@ -867,6 +883,7 @@ pub static S: [[&str; N]; 25] = [
         "Tür",
         "Değiştirme tarihi",
         "Özel sıra",
+        "Otomatik yükseklik",
     ],
     [
         "புதிய பகுதி",
@@ -918,6 +935,7 @@ pub static S: [[&str; N]; 25] = [
         "வகை",
         "மாற்றிய தேதி",
         "தனிப்பயன் வரிசை",
+        "தானியங்கு உயரம்",
     ],
     [
         "Vùng mới",
@@ -969,6 +987,7 @@ pub static S: [[&str; N]; 25] = [
         "Loại",
         "Ngày sửa đổi",
         "Thứ tự tùy chỉnh",
+        "Chiều cao tự động",
     ],
     [
         "새 영역",
@@ -1020,6 +1039,7 @@ pub static S: [[&str; N]; 25] = [
         "유형",
         "수정한 날짜",
         "사용자 지정 순서",
+        "자동 높이",
     ],
     [
         "Nuova area",
@@ -1071,6 +1091,7 @@ pub static S: [[&str; N]; 25] = [
         "Tipo",
         "Data di modifica",
         "Ordine personalizzato",
+        "Altezza automatica",
     ],
     [
         "พื้นที่ใหม่",
@@ -1122,6 +1143,7 @@ pub static S: [[&str; N]; 25] = [
         "ชนิด",
         "วันที่แก้ไข",
         "ลำดับที่กำหนดเอง",
+        "ความสูงอัตโนมัติ",
     ],
     [
         "Nowy obszar",
@@ -1173,6 +1195,7 @@ pub static S: [[&str; N]; 25] = [
         "Typ",
         "Data modyfikacji",
         "Własna kolejność",
+        "Automatyczna wysokość",
     ],
     [
         "Нова область",
@@ -1224,6 +1247,7 @@ pub static S: [[&str; N]; 25] = [
         "Тип",
         "Дата зміни",
         "Власний порядок",
+        "Автоматична висота",
     ],
     [
         "ناحیه جدید",
@@ -1275,5 +1299,6 @@ pub static S: [[&str; N]; 25] = [
         "نوع",
         "تاریخ تغییر",
         "ترتیب دلخواه",
+        "ارتفاع خودکار",
     ],
 ];

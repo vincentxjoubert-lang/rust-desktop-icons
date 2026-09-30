@@ -59,4 +59,5 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - The desktop right-click verb (`HKCU\Software\Classes\DesktopBackground\Shell\RustDesktopIcons`) is written by the
   release app at startup (localized, runs `exe --new`), removed by the MSI on uninstall. On Windows 11 it only shows under
   "Show more options" (the modern menu needs a packaged IExplorerCommand).
-- The MSI desktop-shortcut checkbox choice is remembered in `HKCU\Software\RustDesktopIcons` so silent updates respect it.
+- MSI desktop shortcut: created on first install (checkbox, default on). On upgrades it is only recreated if it still
+  exists on the desktop (`SHORTCUTEXISTS` FileSearch), so a shortcut the user deleted never comes back.

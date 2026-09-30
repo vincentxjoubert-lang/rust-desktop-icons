@@ -78,6 +78,7 @@ fn perform(h: HWND, act: rows::Act) {
             }
         }
         Chameleon => change(|c| c.look.chameleon ^= true),
+        AutoHeight => change(|c| c.look.auto_height ^= true),
         Speed => {
             let current = with(|a| a.cfg.roll_ms).unwrap_or(anim::DEFAULT_MS);
             if let Some(ms) = pick(h, &anim::SPEEDS, current, |ms| with(|a| rows::speed_label(a, ms)).unwrap_or_default()) {

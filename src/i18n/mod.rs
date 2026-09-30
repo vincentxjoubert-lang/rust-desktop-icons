@@ -51,13 +51,14 @@ pub enum T {
     SortType,
     SortDate,
     SortCustom,
+    AutoHeight,
 }
 
 mod table;
 
 use table::S;
 
-const N: usize = 49;
+const N: usize = 50;
 
 pub const LANGS: [(&str, &str); 25] = [
     ("en", "English"),
@@ -131,7 +132,7 @@ mod tests {
     #[test]
     fn complete_tables() {
         assert!(S.iter().flatten().all(|s| !s.trim().is_empty()));
-        assert_eq!(T::SortCustom as usize, N - 1);
+        assert_eq!(T::AutoHeight as usize, N - 1);
     }
 
     #[test]

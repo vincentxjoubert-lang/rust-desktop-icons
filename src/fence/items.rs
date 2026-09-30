@@ -55,7 +55,7 @@ pub fn reload(h: HWND) {
             (v.items, v.cache) = (active, all);
         })
     });
-    render(h);
+    super::layout::apply(h);
 }
 
 pub fn reload_all() {
