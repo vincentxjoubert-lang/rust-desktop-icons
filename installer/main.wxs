@@ -1,11 +1,16 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package Name="Rust Desktop Icons" Manufacturer="vincentxjoubert-lang" Version="$(Version)" UpgradeCode="EC06B7E9-B60A-4EFC-9A07-9FC0C215C3B2" Scope="perUser" Compressed="yes">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Rust Desktop Icons is already installed." />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Rust Desktop Icons is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <util:CloseApplication Id="CloseApp" Target="rust-desktop-icons.exe" CloseMessage="yes" TerminateProcess="0" Timeout="5" RebootPrompt="no" />
     <Icon Id="app.ico" SourceFile="assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="app.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/vincentxjoubert-lang/rust-desktop-icons" />
     <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="SHORTCUTOFF">
+      <RegistrySearch Id="ShortcutOff" Root="HKCU" Key="Software\RustDesktopIcons" Name="NoDesktopShortcut" Type="raw" />
+    </Property>
+    <SetProperty Id="DESKTOPSHORTCUT" Value="1" After="AppSearch" Sequence="both" Condition="NOT SHORTCUTOFF" />
 
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ProgramsDir" Name="Programs">
@@ -15,6 +20,7 @@
             <File Id="License" Source="LICENSE" Name="LICENSE.txt" />
             <RegistryValue Root="HKCU" Key="Software\RustDesktopIcons" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
             <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="RustDesktopIcons" Type="string" Value="&quot;[INSTALLFOLDER]rust-desktop-icons.exe&quot;" />
+            <RemoveRegistryKey Root="HKCU" Key="Software\Classes\DesktopBackground\Shell\RustDesktopIcons" Action="removeOnUninstall" />
             <RemoveFolder Id="RemoveInstall" Directory="INSTALLFOLDER" On="uninstall" />
             <RemoveFolder Id="RemovePrograms" Directory="ProgramsDir" On="uninstall" />
           </Component>
@@ -28,6 +34,54 @@
         <RegistryValue Root="HKCU" Key="Software\RustDesktopIcons" Name="Shortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Condition="DESKTOPSHORTCUT">
+        <Shortcut Id="DesktopShortcut" Name="Rust Desktop Icons" Target="[INSTALLFOLDER]rust-desktop-icons.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\RustDesktopIcons" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="NoDesktopShortcut" Condition="NOT DESKTOPSHORTCUT">
+        <RegistryValue Root="HKCU" Key="Software\RustDesktopIcons" Name="NoDesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <UI Id="SetupUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="Minimal" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <Dialog Id="OptionsDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+        <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgTitle)" />
+        <Control Id="Shortcut" Type="CheckBox" X="135" Y="100" Width="220" Height="17" Property="DESKTOPSHORTCUT" CheckBoxValue="1" Text="Create a desktop shortcut" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WelcomeEulaDlgInstall)">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+      <InstallUISequence>
+        <Show Dialog="OptionsDlg" Before="ProgressDlg" Condition="NOT Installed" />
+      </InstallUISequence>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" />
+    </UI>
+    <UIRef Id="WixUI_Common" />
 
     <CustomAction Id="Launch" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]rust-desktop-icons.exe&quot;" Return="asyncNoWait" Impersonate="yes" />
     <InstallExecuteSequence>

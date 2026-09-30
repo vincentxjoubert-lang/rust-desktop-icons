@@ -22,8 +22,10 @@ use windows::{
     core::*,
 };
 
-const RUN: PCWSTR = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-const NAME: PCWSTR = w!("RustDesktopIcons");
+const RUN: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+const NAME: &str = "RustDesktopIcons";
+const VERB: &str = "Software\\Classes\\DesktopBackground\\Shell\\RustDesktopIcons";
+pub const NEW_ARG: &str = "--new";
 
 pub fn locale() -> String {
     let mut b = [0u16; 85];
@@ -58,14 +60,35 @@ pub fn recycle(p: &Path) -> bool {
     unsafe { SHFileOperationW(&mut op) == 0 && !op.fAnyOperationsAborted.as_bool() }
 }
 
-pub fn info(p: &Path) -> (HICON, Vec<u16>) {
+fn list(px: i32) -> i32 {
+    (match px {
+        ..=16 => SHIL_SMALL,
+        17..=32 => SHIL_LARGE,
+        33..=48 => SHIL_EXTRALARGE,
+        _ => SHIL_JUMBO,
+    }) as i32
+}
+
+pub fn info(p: &Path, px: i32) -> (HICON, Vec<u16>) {
     let mut i = SHFILEINFOW::default();
     let w = wide_path(p);
     let flags = SHGFI_SYSICONINDEX | SHGFI_DISPLAYNAME;
     unsafe { SHGetFileInfoW(PCWSTR(w.as_ptr()), FILE_FLAGS_AND_ATTRIBUTES(0), Some(&mut i), size_of::<SHFILEINFOW>() as u32, flags) };
     let n = i.szDisplayName.iter().position(|&c| c == 0).unwrap_or(i.szDisplayName.len());
-    let icon = unsafe { SHGetImageList::<IImageList>(SHIL_EXTRALARGE as i32).and_then(|l| l.GetIcon(i.iIcon, ILD_TRANSPARENT.0)) };
+    let icon = unsafe { SHGetImageList::<IImageList>(list(px)).and_then(|l| l.GetIcon(i.iIcon, ILD_TRANSPARENT.0)) };
     (icon.unwrap_or_default(), i.szDisplayName[..n].to_vec())
+}
+
+pub fn pick_folder(h: HWND) -> Option<PathBuf> {
+    unsafe {
+        let d: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        d.SetOptions(d.GetOptions().ok()? | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM).ok()?;
+        d.Show(Some(h)).ok()?;
+        let p = d.GetResult().ok()?.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let s = p.to_string().ok();
+        CoTaskMemFree(Some(p.0 as _));
+        s.map(PathBuf::from)
+    }
 }
 
 pub fn open(p: &Path) {
@@ -73,16 +96,31 @@ pub fn open(p: &Path) {
     unsafe { ShellExecuteW(None, w!("open"), PCWSTR(w.as_ptr()), None, None, SW_SHOWNORMAL) };
 }
 
+fn exe() -> Option<String> {
+    env::current_exe().ok().map(|e| e.display().to_string())
+}
+
+fn reg_set(key: &str, name: &str, value: &str) {
+    let (k, n, v) = (wide(key), wide(name), wide(value));
+    let _ = unsafe {
+        RegSetKeyValueW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), PCWSTR(n.as_ptr()), REG_SZ.0, Some(v.as_ptr().cast()), (v.len() * 2) as u32)
+    };
+}
+
 pub fn set_autostart(on: bool) {
-    unsafe {
-        if !on {
-            let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN, NAME);
-            return;
-        }
-        let Ok(exe) = env::current_exe() else { return };
-        let v = wide(&format!("\"{}\"", exe.display()));
-        let _ = RegSetKeyValueW(HKEY_CURRENT_USER, RUN, NAME, REG_SZ.0, Some(v.as_ptr().cast()), (v.len() * 2) as u32);
+    if !on {
+        let (k, n) = (wide(RUN), wide(NAME));
+        let _ = unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), PCWSTR(n.as_ptr())) };
+    } else if let Some(exe) = exe() {
+        reg_set(RUN, NAME, &format!("\"{exe}\""));
     }
+}
+
+pub fn set_desktop_verb(label: &str) {
+    let Some(exe) = exe() else { return };
+    reg_set(VERB, "MUIVerb", label);
+    reg_set(VERB, "Icon", &format!("\"{exe}\",0"));
+    reg_set(&format!("{VERB}\\command"), "", &format!("\"{exe}\" {NEW_ARG}"));
 }
 
 pub fn link_into(target: &Path, dir: &Path) -> Result<PathBuf> {

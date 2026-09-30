@@ -1,0 +1,56 @@
+pub fn cols(w: i32, cell: i32) -> i32 {
+    (w / cell).max(1)
+}
+
+fn offset(w: i32, cell: i32) -> i32 {
+    ((w - cols(w, cell) * cell) / 2).max(0)
+}
+
+pub fn origin(i: usize, w: i32, cell: i32) -> (i32, i32) {
+    let (c, i) = (cols(w, cell), i as i32);
+    (offset(w, cell) + i % c * cell, i / c * cell)
+}
+
+pub fn index_at((x, y): (i32, i32), w: i32, cell: i32, n: usize) -> Option<usize> {
+    let (c, x) = (cols(w, cell), x - offset(w, cell));
+    if x < 0 || y < 0 || x / cell >= c {
+        return None;
+    }
+    let i = (y / cell * c + x / cell) as usize;
+    (i < n).then_some(i)
+}
+
+pub fn max_scroll(n: usize, w: i32, h: i32, cell: i32) -> i32 {
+    let c = cols(w, cell);
+    ((n as i32 + c - 1) / c * cell - h).max(0)
+}
+
+pub fn split(w: i32, n: usize, x: i32) -> Option<usize> {
+    let n = n.max(1) as i32;
+    (0..w).contains(&x).then(|| (x * n / w.max(1)) as usize)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grid_layout() {
+        assert_eq!(cols(250, 80), 3);
+        assert_eq!(origin(4, 250, 80), (85, 80));
+        assert_eq!(index_at((85, 80), 250, 80, 5), Some(4));
+        assert_eq!(index_at((165, 80), 250, 80, 5), None);
+        assert_eq!(index_at((2, 10), 250, 80, 5), None);
+        assert_eq!(max_scroll(7, 250, 100, 80), 140);
+        assert_eq!(max_scroll(1, 250, 100, 80), 0);
+    }
+
+    #[test]
+    fn tab_split() {
+        assert_eq!(split(300, 3, 0), Some(0));
+        assert_eq!(split(300, 3, 150), Some(1));
+        assert_eq!(split(300, 3, 299), Some(2));
+        assert_eq!(split(300, 3, 300), None);
+        assert_eq!(split(300, 1, 10), Some(0));
+    }
+}

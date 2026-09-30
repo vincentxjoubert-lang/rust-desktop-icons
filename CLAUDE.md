@@ -2,6 +2,12 @@
 
 Open-source Fences 6 alternative for Windows 10/11: customizable desktop rectangles ("fences") that hold icons.
 
+## Primary rule (non-negotiable)
+- **No god files**: one responsibility per module. When a file mixes concerns or grows past ~250 lines (data tables like
+  `i18n.rs` excepted), split it into a folder module (`foo/mod.rs` + focused files) before adding more.
+- **Strict DRY**: any logic written twice is factored (helper fn, shared const, `App`/`win` method). Check existing
+  helpers (`win.rs`, `App::fence_of`, `app::change`, `fence::update`) before writing new code.
+
 ## Stack
 Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rustls), sha2. MSI via WiX 5.0.2.
 
@@ -9,13 +15,21 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Test: `cargo test` — single: `cargo test grid_layout`
 - Lint / format: `cargo clippy --all-targets -- -D warnings` / `cargo fmt`
 - Build: `cargo build --release`
-- MSI (local): WiX is installed per-user at `%LOCALAPPDATA%\wixtool\wix.exe`, needs `DOTNET_ROOT=%LOCALAPPDATA%\dotnet`:
-  `wix build installer/main.wxs -d Version=0.1.0 -arch x64 -o target/rdi.msi`
+- MSI (local): needs WiX 5.0.2 (`dotnet tool install wix --version 5.0.2`) + `wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2`:
+  `wix build installer/main.wxs -d Version=0.1.0 -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o target/rdi.msi`
 - Release: bump `version` in Cargo.toml, commit, push tag `vX.Y.Z` → `.github/workflows/release.yml` builds and publishes MSI + `.sha256`.
 
 ## Layout
-- `src/domain.rs` pure logic (all unit-tested); `store.rs` persistence; `i18n.rs` 25 languages; `update.rs` updater.
-- `src/app.rs` state + tray; `src/fence.rs` fence window; `src/shell.rs`, `src/win.rs` Win32 wrappers.
+- `src/domain/` pure logic, all unit-tested: `model.rs` (Config/Fence/Tab/Look), `kind.rs` (file types for rules),
+  `anim.rs`, `grid.rs`, `snap.rs`, `icons.rs`, `color.rs`, `zone.rs`.
+- `store.rs` persistence (`tab_dir`: portal path or `fences/<tab id>`); `i18n/` (`mod.rs` logic, `table.rs` 25 languages);
+  `update.rs` updater; `rules.rs` desktop watcher + auto-sort; `prefs.rs` global prefs shared by tray and settings.
+- `src/app.rs` global state + startup; `src/tray/` tray icon/menu (`updates.rs` update scheduling).
+- `src/layered/` shared per-pixel window painting (`Frame`: text mask, compositing, present; `Dib`).
+- `src/fence/` fence window: `mod.rs` proc, `layout.rs` geometry, `items.rs` icons, `paint.rs` + `header.rs` rendering,
+  `tabs.rs` tabs/portals, `anim.rs` unroll + chameleon fade, `peek.rs` hover, `menu.rs`, `actions.rs`, `title.rs` rename,
+  `drop.rs`, `snap.rs`.
+- `src/settings/` settings window (custom drawn): `rows.rs` content/layout, `paint.rs`, `act.rs`, `mod.rs` window.
 - `installer/main.wxs` per-user MSI (installs to `%LOCALAPPDATA%\Programs`, owns the HKCU Run value).
 
 ## Conventions
@@ -35,3 +49,9 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Fence windows are owned by `Progman` and forced to `HWND_BOTTOM`; Explorer restart → `TaskbarCreated` → `rebuild()`.
 - The updater only accepts URLs under this repo's releases; the MSI asset must have a matching `<name>.msi.sha256`.
 - MSI `UpgradeCode` and component GUIDs must never change.
+- The MSI closes the running app first (`util:CloseApplication` → WM_CLOSE, handled by the tray window; killed after 5 s),
+  otherwise the old process keeps its mutex and the relaunched new version exits silently.
+- The desktop right-click verb (`HKCU\Software\Classes\DesktopBackground\Shell\RustDesktopIcons`) is written by the
+  release app at startup (localized, runs `exe --new`), removed by the MSI on uninstall. On Windows 11 it only shows under
+  "Show more options" (the modern menu needs a packaged IExplorerCommand).
+- The MSI desktop-shortcut checkbox choice is remembered in `HKCU\Software\RustDesktopIcons` so silent updates respect it.

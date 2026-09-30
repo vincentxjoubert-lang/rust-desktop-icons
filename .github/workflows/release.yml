@@ -20,11 +20,12 @@ jobs:
       - run: cargo test --locked
       - run: cargo build --release --locked
       - run: dotnet tool install --global wix --version 5.0.2
+      - run: wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2
       - name: Build MSI
         shell: pwsh
         run: |
           $msi = "rust-desktop-icons-$env:VERSION-x64.msi"
-          wix build installer/main.wxs -d Version=$env:VERSION -arch x64 -o $msi
+          wix build installer/main.wxs -d Version=$env:VERSION -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o $msi
           $hash = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLower()
           "$hash  $msi" | Out-File "$msi.sha256" -Encoding ascii -NoNewline
           "MSI=$msi" >> $env:GITHUB_ENV

@@ -1,4 +1,4 @@
-﻿pub fn premul(c: u32, a: u8) -> u32 {
+pub fn premul(c: u32, a: u8) -> u32 {
     let k = |v: u32| v * a as u32 / 255;
     (a as u32) << 24 | k(c & 0xFF) << 16 | k(c >> 8 & 0xFF) << 8 | k(c >> 16 & 0xFF)
 }
@@ -93,6 +93,21 @@ fn pass(src: &[u32], dst: &mut [u32], (lines, len, line_step, step): (usize, usi
     }
 }
 
+pub fn gray(px: &mut [u32]) {
+    for p in px {
+        *p = ((*p & 0xFF) + (*p >> 8 & 0xFF) + (*p >> 16 & 0xFF)) / 3 * 0x0101_0101;
+    }
+}
+
+pub fn tint(px: &mut [u32], color: u32) {
+    let t = premul(color, 255) & 0xFF_FFFF;
+    for p in px.iter_mut().filter(|p| **p >> 24 != 0) {
+        let a = *p >> 24;
+        let lum = ((*p >> 16 & 0xFF) * 77 + (*p >> 8 & 0xFF) * 150 + (*p & 0xFF) * 29) >> 8;
+        *p = a << 24 | fade(t, (lum + a) / 2);
+    }
+}
+
 pub fn blur(src: &[u32], w: i32, h: i32, r: i32) -> Vec<u32> {
     let (w, h, r) = (w.max(1) as usize, h.max(1) as usize, r.max(0) as usize);
     let mut a: Vec<u32> = src.iter().map(|p| p & 0xFF).collect();
@@ -116,6 +131,20 @@ mod tests {
         assert!(b[24] < 255 && b[24] > 0 && b[23] > 0 && b[0] == 0);
         assert!(b.iter().all(|&v| v <= 255));
         assert_eq!(blur(&[0x12_34_56_FF; 9], 3, 3, 0), vec![255; 9]);
+    }
+
+    #[test]
+    fn cleartype_to_gray() {
+        let mut px = [0x00_FF_00_00, 0x00_30_60_90, 0];
+        gray(&mut px);
+        assert_eq!(px, [0x5555_5555, 0x6060_6060, 0]);
+    }
+
+    #[test]
+    fn tinting() {
+        let mut px = [0xFF_FF_FF_FF, 0x80_00_00_00, 0];
+        tint(&mut px, 0x00_00_FF);
+        assert_eq!(px, [0xFF_FF_00_00, 0x80_40_00_00, 0]);
     }
 
     #[test]

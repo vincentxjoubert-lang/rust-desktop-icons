@@ -2,8 +2,9 @@ use std::{os::windows::ffi::OsStrExt, path::Path};
 use windows::{
     Win32::{
         Foundation::*,
+        Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect},
         System::LibraryLoader::GetModuleHandleW,
-        UI::{HiDpi::GetDpiForWindow, WindowsAndMessaging::*},
+        UI::{Controls::Dialogs::*, HiDpi::GetDpiForWindow, WindowsAndMessaging::*},
     },
     core::*,
 };
@@ -20,6 +21,24 @@ pub fn inst() -> HINSTANCE {
     unsafe { GetModuleHandleW(None).map(|m| HINSTANCE(m.0)).unwrap_or_default() }
 }
 
+pub fn window_rect(h: HWND) -> RECT {
+    let mut r = RECT::default();
+    unsafe { GetWindowRect(h, &mut r).ok() };
+    r
+}
+
+pub fn client_rect(h: HWND) -> RECT {
+    let mut r = RECT::default();
+    unsafe { GetClientRect(h, &mut r).ok() };
+    r
+}
+
+pub fn work_area(r: &RECT) -> RECT {
+    let mut mi = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+    let _ = unsafe { GetMonitorInfoW(MonitorFromRect(r, MONITOR_DEFAULTTONEAREST), &mut mi) };
+    mi.rcWork
+}
+
 pub fn scale(h: HWND, v: i32) -> i32 {
     v * unsafe { GetDpiForWindow(h) }.max(96) as i32 / 96
 }
@@ -34,6 +53,19 @@ pub fn register(class: PCWSTR, proc: WNDPROC) {
         ..Default::default()
     };
     unsafe { RegisterClassW(&wc) };
+}
+
+pub fn choose_color(h: HWND, init: u32) -> Option<u32> {
+    let mut custom = [COLORREF(0); 16];
+    let mut cc = CHOOSECOLORW {
+        lStructSize: size_of::<CHOOSECOLORW>() as u32,
+        hwndOwner: h,
+        rgbResult: COLORREF(init),
+        lpCustColors: custom.as_mut_ptr(),
+        Flags: CC_RGBINIT | CC_FULLOPEN,
+        ..Default::default()
+    };
+    unsafe { ChooseColorW(&mut cc) }.as_bool().then_some(cc.rgbResult.0 & 0xFF_FFFF)
 }
 
 pub fn msgbox(h: Option<HWND>, text: &str, style: MESSAGEBOX_STYLE, rtl: bool) -> MESSAGEBOX_RESULT {

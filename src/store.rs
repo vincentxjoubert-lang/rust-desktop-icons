@@ -1,4 +1,4 @@
-use crate::domain::Config;
+use crate::domain::{Config, Tab};
 use std::{
     env,
     ffi::OsStr,
@@ -12,6 +12,10 @@ pub fn root() -> PathBuf {
 
 pub fn fence_dir(id: u64) -> PathBuf {
     root().join("fences").join(id.to_string())
+}
+
+pub fn tab_dir(t: &Tab) -> PathBuf {
+    t.portal.clone().unwrap_or_else(|| fence_dir(t.id))
 }
 
 pub fn load() -> Config {
@@ -61,7 +65,7 @@ pub fn move_into(src: &Path, dir: &Path) -> io::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::Fence;
+    use crate::domain::{Fence, Look};
 
     fn tmp(tag: &str) -> PathBuf {
         let d = env::temp_dir().join(format!("rdi-test-{tag}-{}", std::process::id()));
@@ -74,7 +78,7 @@ mod tests {
     fn save_then_load() {
         let d = tmp("cfg");
         let mut c = Config::default();
-        c.fences.push(Fence { id: 7, title: "Apps".into(), ..Fence::default() });
+        c.fences.push(Fence::new(7, "Apps", (100, 100, 360, 240), Look::default()));
         save_to(&d, &c).unwrap();
         assert_eq!(load_from(&d), c);
         fs::write(d.join("config.json"), "{broken").unwrap();
