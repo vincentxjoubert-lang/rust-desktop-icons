@@ -1,6 +1,7 @@
 use crate::win::{wide, wide_path};
 use std::{
     env,
+    os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 use windows::{
@@ -30,13 +31,31 @@ pub fn locale() -> String {
     String::from_utf16_lossy(&b[..n.saturating_sub(1)])
 }
 
-pub fn desktop() -> Option<PathBuf> {
+fn known(id: &GUID) -> Option<PathBuf> {
     unsafe {
-        let p = SHGetKnownFolderPath(&FOLDERID_Desktop, KNOWN_FOLDER_FLAG(0), None).ok()?;
+        let p = SHGetKnownFolderPath(id, KNOWN_FOLDER_FLAG(0), None).ok()?;
         let s = p.to_string().ok();
         CoTaskMemFree(Some(p.0 as _));
         s.map(PathBuf::from)
     }
+}
+
+pub fn desktop() -> Option<PathBuf> {
+    known(&FOLDERID_Desktop)
+}
+
+pub fn desktops() -> Vec<PathBuf> {
+    [known(&FOLDERID_Desktop), known(&FOLDERID_PublicDesktop)].into_iter().flatten().collect()
+}
+
+pub fn same_path(a: &Path, b: &Path) -> bool {
+    a.as_os_str().eq_ignore_ascii_case(b.as_os_str()) || a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+}
+
+pub fn recycle(p: &Path) -> bool {
+    let from: Vec<u16> = p.as_os_str().encode_wide().chain([0, 0]).collect();
+    let mut op = SHFILEOPSTRUCTW { wFunc: FO_DELETE, pFrom: PCWSTR(from.as_ptr()), fFlags: FOF_ALLOWUNDO.0 as u16, ..Default::default() };
+    unsafe { SHFileOperationW(&mut op) == 0 && !op.fAnyOperationsAborted.as_bool() }
 }
 
 pub fn info(p: &Path) -> (HICON, Vec<u16>) {
@@ -69,12 +88,17 @@ pub fn set_autostart(on: bool) {
 pub fn link_into(target: &Path, dir: &Path) -> Result<PathBuf> {
     let ext = target.extension().map(|e| e.to_ascii_lowercase());
     if ext.as_ref().is_some_and(|e| e == "lnk" || e == "url") {
-        let dst = crate::store::unique(dir, target.file_name().unwrap_or_default());
-        std::fs::copy(target, &dst)?;
+        let dst = dir.join(target.file_name().unwrap_or_default());
+        if !dst.exists() {
+            std::fs::copy(target, &dst)?;
+        }
         return Ok(dst);
     }
     let name = format!("{}.lnk", target.file_name().unwrap_or_default().to_string_lossy());
-    let dst = crate::store::unique(dir, name.as_ref());
+    let dst = dir.join(name);
+    if dst.exists() {
+        return Ok(dst);
+    }
     unsafe {
         let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
         link.SetPath(PCWSTR(wide_path(target).as_ptr()))?;
@@ -135,7 +159,9 @@ mod tests {
         let lnk = link_into(&target, &out).unwrap();
         assert_eq!(lnk, out.join("app.txt.lnk"));
         assert!(fs::metadata(&lnk).unwrap().len() > 0);
-        assert_eq!(link_into(&lnk, &out).unwrap(), out.join("app.txt (2).lnk"));
+        assert_eq!(link_into(&target, &out).unwrap(), lnk);
+        assert_eq!(fs::read_dir(&out).unwrap().count(), 1);
+        assert!(same_path(&out, Path::new(&out.to_string_lossy().to_uppercase())));
         assert!(target.exists());
         fs::remove_dir_all(d).unwrap();
     }

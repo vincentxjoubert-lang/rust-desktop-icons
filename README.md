@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/icon.png" width="128" alt="Rust Desktop Icons logo"></p>
+﻿<p align="center"><img src="assets/icon.png" width="128" alt="Rust Desktop Icons logo"></p>
 
 <h1 align="center">Rust Desktop Icons</h1>
 
@@ -55,6 +55,7 @@ Organize your Windows desktop into beautiful, translucent groups of icons. Tiny,
 | Roll up / down | Double-click the title bar |
 | Color, opacity, delete | Right-click inside the fence |
 | Put an item back | Right-click it → **Move to desktop** |
+| Delete an item | Right-click it → **Delete** (goes to the Recycle Bin) |
 | Scroll | Mouse wheel over a fence |
 
 Files from your own desktop are **moved** into `%LOCALAPPDATA%\RustDesktopIcons\fences\<id>` (never deleted).
@@ -81,7 +82,7 @@ Native speakers: corrections are welcome in [`src/i18n.rs`](src/i18n.rs).
 cargo test
 cargo build --release
 dotnet tool install --global wix --version 5.0.2
-wix build installer/main.wxs -d Version=0.4.0 -arch x64 -o rust-desktop-icons.msi
+wix build installer/main.wxs -d Version=0.5.0 -arch x64 -o rust-desktop-icons.msi
 ```
 
 Pushing a `vX.Y.Z` tag builds and publishes the MSI with [GitHub Actions](.github/workflows/release.yml).

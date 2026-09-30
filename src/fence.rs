@@ -256,6 +256,7 @@ fn context(h: HWND) {
         if target.is_some() {
             item(m, 30, a.t(T::Open), false);
             item(m, 31, a.t(T::Restore), false);
+            item(m, 32, a.t(T::Delete), false);
             separator(m);
         }
         let o = menu();
@@ -290,6 +291,7 @@ fn context(h: HWND) {
                 reload(h);
             }
         }
+        32 if target.is_some_and(|p| shell::recycle(&p)) => reload(h),
         _ => {}
     }
 }
@@ -308,16 +310,17 @@ fn drop_files(h: HWND, d: HDROP) {
         })
         .collect();
     unsafe { DragFinish(d) };
-    let (Some(id), Some(desk)) = (id(h), shell::desktop()) else {
-        return;
-    };
-    let (dir, fences) = (store::fence_dir(id), store::root().join("fences"));
-    for p in paths.iter().filter(|p| !p.starts_with(&dir)) {
-        let _ = if p.parent().is_some_and(|q| q == desk || q.parent() == Some(fences.as_path())) {
-            store::move_into(p, &dir)
-        } else {
-            shell::link_into(p, &dir).map_err(std::io::Error::other)
-        };
+    let Some(id) = id(h) else { return };
+    let (dir, fences, desks) = (store::fence_dir(id), store::root().join("fences"), shell::desktops());
+    let is = |q: Option<&std::path::Path>, d: &std::path::Path| q.is_some_and(|q| shell::same_path(q, d));
+    for p in paths.iter().filter(|p| !is(p.parent(), &dir)) {
+        let own = desks.first().is_some_and(|d| is(p.parent(), d)) || is(p.parent().and_then(|q| q.parent()), &fences);
+        let public = desks.get(1).is_some_and(|d| is(p.parent(), d));
+        if own {
+            let _ = store::move_into(p, &dir);
+        } else if !(public && store::move_into(p, &dir).is_ok()) {
+            let _ = shell::link_into(p, &dir);
+        }
     }
     with(|a| a.views.iter().map(|v| v.hwnd).collect::<Vec<_>>()).into_iter().flatten().for_each(reload);
 }
@@ -508,6 +511,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             unsafe { SetWindowPos(h, None, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE).ok() };
         }
         WM_NCLBUTTONDBLCLK if wp.0 as u32 == HTCAPTION => update(h, |f| f.rolled ^= true),
+        WM_NCRBUTTONUP if wp.0 as u32 == HTCAPTION => rename(h),
         WM_LBUTTONDBLCLK => item_at(h, xy(lp)).iter().for_each(|p| shell::open(p)),
         WM_CONTEXTMENU => context(h),
         WM_MOUSEMOVE => {

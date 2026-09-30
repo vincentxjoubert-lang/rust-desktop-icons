@@ -20,9 +20,10 @@ pub enum T {
     Fence,
     UpdateFailed,
     Auto,
+    Delete,
 }
 
-const N: usize = 20;
+const N: usize = 21;
 
 pub const LANGS: [(&str, &str); 25] = [
     ("en", "English"),
@@ -74,6 +75,7 @@ static S: [[&str; N]; 25] = [
         "Fence",
         "Could not check for updates.",
         "Automatic",
+        "Delete",
     ],
     [
         "新建分区",
@@ -96,6 +98,7 @@ static S: [[&str; N]; 25] = [
         "分区",
         "无法检查更新。",
         "自动",
+        "删除",
     ],
     [
         "नया क्षेत्र",
@@ -118,6 +121,7 @@ static S: [[&str; N]; 25] = [
         "क्षेत्र",
         "अपडेट की जाँच नहीं हो सकी।",
         "स्वचालित",
+        "हटाएँ",
     ],
     [
         "Nueva zona",
@@ -140,6 +144,7 @@ static S: [[&str; N]; 25] = [
         "Zona",
         "No se pudieron buscar actualizaciones.",
         "Automático",
+        "Eliminar",
     ],
     [
         "Nouvelle zone",
@@ -162,6 +167,7 @@ static S: [[&str; N]; 25] = [
         "Zone",
         "Impossible de vérifier les mises à jour.",
         "Automatique",
+        "Supprimer",
     ],
     [
         "منطقة جديدة",
@@ -184,6 +190,7 @@ static S: [[&str; N]; 25] = [
         "منطقة",
         "تعذّر البحث عن تحديثات.",
         "تلقائي",
+        "حذف",
     ],
     [
         "নতুন অঞ্চল",
@@ -206,6 +213,7 @@ static S: [[&str; N]; 25] = [
         "অঞ্চল",
         "আপডেট পরীক্ষা করা যায়নি।",
         "স্বয়ংক্রিয়",
+        "মুছুন",
     ],
     [
         "Nova área",
@@ -228,6 +236,7 @@ static S: [[&str; N]; 25] = [
         "Área",
         "Não foi possível verificar atualizações.",
         "Automático",
+        "Excluir",
     ],
     [
         "Новая область",
@@ -250,6 +259,7 @@ static S: [[&str; N]; 25] = [
         "Область",
         "Не удалось проверить обновления.",
         "Автоматически",
+        "Удалить",
     ],
     [
         "نیا خطہ",
@@ -272,6 +282,7 @@ static S: [[&str; N]; 25] = [
         "خطہ",
         "اپ ڈیٹس چیک نہیں ہو سکیں۔",
         "خودکار",
+        "حذف کریں",
     ],
     [
         "Area baru",
@@ -294,6 +305,7 @@ static S: [[&str; N]; 25] = [
         "Area",
         "Tidak dapat memeriksa pembaruan.",
         "Otomatis",
+        "Hapus",
     ],
     [
         "Neuer Bereich",
@@ -316,6 +328,7 @@ static S: [[&str; N]; 25] = [
         "Bereich",
         "Suche nach Updates fehlgeschlagen.",
         "Automatisch",
+        "Löschen",
     ],
     [
         "新しいフェンス",
@@ -338,6 +351,7 @@ static S: [[&str; N]; 25] = [
         "フェンス",
         "更新を確認できませんでした。",
         "自動",
+        "削除",
     ],
     [
         "Eneo jipya",
@@ -360,6 +374,7 @@ static S: [[&str; N]; 25] = [
         "Eneo",
         "Imeshindwa kuangalia masasisho.",
         "Kiotomatiki",
+        "Futa",
     ],
     [
         "नवीन क्षेत्र",
@@ -382,6 +397,7 @@ static S: [[&str; N]; 25] = [
         "क्षेत्र",
         "अद्यतने तपासता आली नाहीत.",
         "स्वयंचलित",
+        "हटवा",
     ],
     [
         "కొత్త ప్రాంతం",
@@ -404,6 +420,7 @@ static S: [[&str; N]; 25] = [
         "ప్రాంతం",
         "నవీకరణలను తనిఖీ చేయలేకపోయాం.",
         "స్వయంచాలకం",
+        "తొలగించు",
     ],
     [
         "Yeni alan",
@@ -426,6 +443,7 @@ static S: [[&str; N]; 25] = [
         "Alan",
         "Güncellemeler denetlenemedi.",
         "Otomatik",
+        "Sil",
     ],
     [
         "புதிய பகுதி",
@@ -448,6 +466,7 @@ static S: [[&str; N]; 25] = [
         "பகுதி",
         "புதுப்பிப்புகளைச் சரிபார்க்க முடியவில்லை.",
         "தானியங்கு",
+        "நீக்கு",
     ],
     [
         "Vùng mới",
@@ -470,6 +489,7 @@ static S: [[&str; N]; 25] = [
         "Vùng",
         "Không thể kiểm tra cập nhật.",
         "Tự động",
+        "Xóa",
     ],
     [
         "새 영역",
@@ -492,6 +512,7 @@ static S: [[&str; N]; 25] = [
         "영역",
         "업데이트를 확인할 수 없습니다.",
         "자동",
+        "삭제",
     ],
     [
         "Nuova area",
@@ -514,6 +535,7 @@ static S: [[&str; N]; 25] = [
         "Area",
         "Impossibile cercare aggiornamenti.",
         "Automatica",
+        "Elimina",
     ],
     [
         "พื้นที่ใหม่",
@@ -536,6 +558,7 @@ static S: [[&str; N]; 25] = [
         "พื้นที่",
         "ไม่สามารถตรวจหาอัปเดตได้",
         "อัตโนมัติ",
+        "ลบ",
     ],
     [
         "Nowy obszar",
@@ -558,6 +581,7 @@ static S: [[&str; N]; 25] = [
         "Obszar",
         "Nie udało się sprawdzić aktualizacji.",
         "Automatycznie",
+        "Usuń",
     ],
     [
         "Нова область",
@@ -580,6 +604,7 @@ static S: [[&str; N]; 25] = [
         "Область",
         "Не вдалося перевірити оновлення.",
         "Автоматично",
+        "Видалити",
     ],
     [
         "ناحیه جدید",
@@ -602,6 +627,7 @@ static S: [[&str; N]; 25] = [
         "ناحیه",
         "بررسی به‌روزرسانی ممکن نشد.",
         "خودکار",
+        "حذف",
     ],
 ];
 
@@ -628,7 +654,7 @@ mod tests {
     #[test]
     fn complete_tables() {
         assert!(S.iter().flatten().all(|s| !s.trim().is_empty()));
-        assert_eq!(T::Auto as usize, N - 1);
+        assert_eq!(T::Delete as usize, N - 1);
     }
 
     #[test]
