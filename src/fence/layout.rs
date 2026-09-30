@@ -47,7 +47,12 @@ pub(super) fn hit(h: HWND, lp: LPARAM) -> u32 {
     let f = fence_of(h);
     let folded = f.as_ref().is_some_and(|f| progress(h, f) < 1.);
     let z = zone((r.right - r.left, r.bottom - r.top), (x - r.left, y - r.top), scale(h, BORDER), scale(h, TITLE), folded);
-    match if f.is_some_and(|f| f.look.auto_height) { z.width_only() } else { z } {
+    let z = match f {
+        Some(f) if f.locked => z.fixed(),
+        Some(f) if f.look.auto_height => z.width_only(),
+        _ => z,
+    };
+    match z {
         Zone::Client => HTCLIENT,
         Zone::Caption => HTCAPTION,
         Zone::Left => HTLEFT,

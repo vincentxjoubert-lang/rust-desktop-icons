@@ -99,6 +99,16 @@ pub fn gray(px: &mut [u32]) {
     }
 }
 
+pub fn straight(px: &mut [u32]) {
+    for p in px.iter_mut() {
+        let a = *p >> 24;
+        if a != 0 && a != 255 {
+            let k = |v: u32| (v * 255 / a).min(255);
+            *p = a << 24 | k(*p >> 16 & 0xFF) << 16 | k(*p >> 8 & 0xFF) << 8 | k(*p & 0xFF);
+        }
+    }
+}
+
 pub fn tint(px: &mut [u32], color: u32) {
     let t = premul(color, 255) & 0xFF_FFFF;
     for p in px.iter_mut().filter(|p| **p >> 24 != 0) {
@@ -138,6 +148,13 @@ mod tests {
         let mut px = [0x00_FF_00_00, 0x00_30_60_90, 0];
         gray(&mut px);
         assert_eq!(px, [0x5555_5555, 0x6060_6060, 0]);
+    }
+
+    #[test]
+    fn unpremultiply() {
+        let mut px = [premul(0x00_80_FF, 128), 0xFF_12_34_56, 0];
+        straight(&mut px);
+        assert_eq!(px, [0x80_FF_7F_00, 0xFF_12_34_56, 0]);
     }
 
     #[test]

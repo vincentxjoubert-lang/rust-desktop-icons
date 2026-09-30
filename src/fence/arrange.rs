@@ -4,6 +4,7 @@ use crate::{
     domain::{Kind, Sort, Tab, order},
     i18n::{self, T},
     layered::glyph as g,
+    store,
     win::*,
 };
 use std::path::PathBuf;
@@ -61,8 +62,7 @@ pub(super) fn handle(h: HWND, id: usize) -> bool {
 }
 
 pub(super) fn move_within(h: HWND, moved: &[PathBuf], before: Option<PathBuf>) {
-    let name = |p: &PathBuf| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let moved: Vec<String> = moved.iter().map(name).collect();
-    let before = before.as_ref().map(name);
+    let moved: Vec<String> = moved.iter().map(|p| store::name(p)).collect();
+    let before = before.as_deref().map(store::name);
     set_order(h, Sort::Custom, order::reorder(&names(h), &moved, before.as_deref()));
 }

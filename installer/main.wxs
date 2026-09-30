@@ -89,7 +89,9 @@
     <UIRef Id="WixUI_Common" />
 
     <CustomAction Id="Launch" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]rust-desktop-icons.exe&quot;" Return="asyncNoWait" Impersonate="yes" />
+    <CustomAction Id="Evacuate" FileRef="Exe" ExeCommand="--uninstall" Execute="deferred" Impersonate="yes" Return="ignore" />
     <InstallExecuteSequence>
+      <Custom Action="Evacuate" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="Launch" After="InstallFinalize" Condition="NOT REMOVE" />
     </InstallExecuteSequence>
   </Package>

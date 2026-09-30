@@ -58,9 +58,8 @@ pub fn open() {
         return refresh();
     }
     let s = sys_scale;
-    let mut p = POINT::default();
-    let _ = unsafe { GetCursorPos(&mut p) };
-    let area = work_area(&RECT { left: p.x, top: p.y, right: p.x + 1, bottom: p.y + 1 });
+    let (cx, cy) = cursor_pos();
+    let area = work_area(&RECT { left: cx, top: cy, right: cx + 1, bottom: cy + 1 });
     let w = s(rows::WIDTH);
     let (x, y) = (area.left + (area.right - area.left - w) / 2, area.top + s(60));
     let ex = WS_EX_LAYERED | WS_EX_APPWINDOW;
@@ -116,7 +115,8 @@ fn track(h: HWND, p: (i32, i32)) {
 unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match m {
         WM_NCHITTEST => {
-            let mut p = POINT { x: lp.0 as i16 as i32, y: (lp.0 >> 16) as i16 as i32 };
+            let (x, y) = xy(lp);
+            let mut p = POINT { x, y };
             let _ = unsafe { ScreenToClient(h, &mut p) };
             let caption = p.y < scale(h, rows::TOP) && !inside(&close_rect(h), (p.x, p.y));
             return LRESULT(if caption { HTCAPTION } else { HTCLIENT } as isize);

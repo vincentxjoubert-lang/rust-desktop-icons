@@ -13,6 +13,14 @@ pub enum Zone {
 }
 
 impl Zone {
+    pub fn fixed(self) -> Zone {
+        use Zone::*;
+        match self {
+            Caption | Top => Caption,
+            _ => Client,
+        }
+    }
+
     pub fn width_only(self) -> Zone {
         use Zone::*;
         match self {
@@ -68,5 +76,8 @@ mod tests {
         assert_eq!(z(0, 0, false).width_only(), Zone::Left);
         assert_eq!(z(100, 99, false).width_only(), Zone::Client);
         assert_eq!(z(100, 0, false).width_only(), Zone::Caption);
+        assert_eq!(z(0, 50, false).fixed(), Zone::Client);
+        assert_eq!(z(100, 10, false).fixed(), Zone::Caption);
+        assert_eq!(z(199, 99, false).fixed(), Zone::Client);
     }
 }

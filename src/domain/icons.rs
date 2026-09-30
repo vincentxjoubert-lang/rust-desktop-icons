@@ -10,6 +10,10 @@ pub fn step(px: i32, up: bool) -> i32 {
     SIZES[if up { (i + 1).min(SIZES.len() - 1) } else { i.saturating_sub(1) }]
 }
 
+pub fn label(px: i32) -> String {
+    format!("{px} px")
+}
+
 pub fn cell(px: i32) -> i32 {
     px + 56
 }

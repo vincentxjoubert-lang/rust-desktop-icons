@@ -2,6 +2,8 @@ use super::{TITLE, cell, label_font, metrics, reload, title_font, update};
 use crate::{
     app::with,
     domain::{grid, names},
+    i18n::T,
+    report, store,
     win::*,
 };
 use std::{fs, path::PathBuf};
@@ -108,11 +110,14 @@ pub(super) fn finish(h: HWND, commit: bool) {
         }
         Some(path) => {
             let shown = with(|a| a.view(h)?.items.iter().find(|i| i.path == path).map(|i| String::from_utf16_lossy(&i.name))).flatten();
-            let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let file = store::name(&path);
             if let Some(name) = names::renamed(&file, shown.as_deref().unwrap_or(&file), &text) {
-                let dest = path.with_file_name(name);
-                if !dest.exists() && fs::rename(&path, &dest).is_ok() {
-                    reload(h);
+                let dest = path.with_file_name(&name);
+                let result =
+                    if dest.exists() { Err(std::io::Error::from(std::io::ErrorKind::AlreadyExists)) } else { fs::rename(&path, &dest) };
+                match result {
+                    Ok(()) => reload(h),
+                    Err(err) => report::alert(T::ErrRename, &format!("{file} → {name} ({err})")),
                 }
             }
         }

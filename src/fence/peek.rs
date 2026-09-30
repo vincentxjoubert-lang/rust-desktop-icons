@@ -1,9 +1,12 @@
 use super::{PEEK, anim, update};
-use crate::{app::with, win::window_rect};
+use crate::{
+    app::with,
+    win::{cursor_pos, window_rect},
+};
 use windows::Win32::{
     Foundation::*,
     Graphics::Gdi::PtInRect,
-    UI::WindowsAndMessaging::{GetCursorPos, KillTimer, SetTimer},
+    UI::WindowsAndMessaging::{KillTimer, SetTimer},
 };
 
 pub(super) fn enter(h: HWND) {
@@ -14,8 +17,8 @@ pub(super) fn enter(h: HWND) {
 }
 
 pub(super) fn check(h: HWND) {
-    let mut p = POINT::default();
-    let inside = unsafe { GetCursorPos(&mut p).is_ok() && PtInRect(&window_rect(h), p).as_bool() };
+    let (x, y) = cursor_pos();
+    let inside = unsafe { PtInRect(&window_rect(h), POINT { x, y }) }.as_bool();
     if inside || with(|a| a.view(h).map(|v| v.edit.is_some())).flatten() != Some(false) {
         return;
     }

@@ -12,18 +12,19 @@ pub use data::files;
 pub use dnd::{DragImage, drag_out, pick_folder};
 pub use link::link_into;
 pub use ops::{delete, transfer};
-pub use reg::{NEW_ARG, set_autostart, set_desktop_verb};
+pub use reg::{NEW_ARG, UNINSTALL_ARG, set_autostart, set_desktop_verb};
 use std::path::{Path, PathBuf};
 pub use watch::Watch;
 use windows::{
     Win32::{
         Globalization::GetUserDefaultLocaleName,
+        Graphics::Gdi::HDC,
         Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES,
         System::Com::CoTaskMemFree,
         UI::{
             Controls::{IImageList, ILD_TRANSPARENT},
             Shell::*,
-            WindowsAndMessaging::{HICON, SW_SHOWNORMAL},
+            WindowsAndMessaging::{DI_NORMAL, DestroyIcon, DrawIconEx, SW_SHOWNORMAL},
         },
     },
     core::*,
@@ -65,14 +66,22 @@ fn list(px: i32) -> i32 {
     }) as i32
 }
 
-pub fn info(p: &Path, px: i32) -> (HICON, Vec<u16>) {
+pub fn info(p: &Path) -> (i32, Vec<u16>) {
     let mut i = SHFILEINFOW::default();
     let w = wide_path(p);
     let flags = SHGFI_SYSICONINDEX | SHGFI_DISPLAYNAME;
     unsafe { SHGetFileInfoW(PCWSTR(w.as_ptr()), FILE_FLAGS_AND_ATTRIBUTES(0), Some(&mut i), size_of::<SHFILEINFOW>() as u32, flags) };
     let n = i.szDisplayName.iter().position(|&c| c == 0).unwrap_or(i.szDisplayName.len());
-    let icon = unsafe { SHGetImageList::<IImageList>(list(px)).and_then(|l| l.GetIcon(i.iIcon, ILD_TRANSPARENT.0)) };
-    (icon.unwrap_or_default(), i.szDisplayName[..n].to_vec())
+    (i.iIcon, i.szDisplayName[..n].to_vec())
+}
+
+pub fn draw_icon(dc: HDC, index: i32, (x, y): (i32, i32), px: i32) {
+    unsafe {
+        if let Ok(icon) = SHGetImageList::<IImageList>(list(px)).and_then(|l| l.GetIcon(index, ILD_TRANSPARENT.0)) {
+            let _ = DrawIconEx(dc, x, y, icon, px, px, 0, None, DI_NORMAL);
+            let _ = DestroyIcon(icon);
+        }
+    }
 }
 
 pub fn open(p: &Path) {

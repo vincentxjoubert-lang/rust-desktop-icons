@@ -2,7 +2,7 @@ use super::data;
 use std::path::PathBuf;
 use windows::{
     Win32::{
-        Foundation::HGLOBAL,
+        Foundation::{GlobalFree, HGLOBAL},
         System::{
             Com::{STGMEDIUM, STGMEDIUM_0, TYMED_HGLOBAL},
             DataExchange::RegisterClipboardFormatW,
@@ -24,7 +24,9 @@ pub fn set(paths: &[PathBuf], cut: bool) -> bool {
             *(GlobalLock(g) as *mut u32) = if cut { DROPEFFECT_MOVE.0 } else { DROPEFFECT_COPY.0 };
             let _ = GlobalUnlock(g);
             let medium = STGMEDIUM { tymed: TYMED_HGLOBAL.0 as u32, u: STGMEDIUM_0 { hGlobal: g }, ..Default::default() };
-            let _ = obj.SetData(&data::format(effect_format()), &medium, true);
+            if obj.SetData(&data::format(effect_format()), &medium, true).is_err() {
+                let _ = GlobalFree(Some(g));
+            }
         }
         OleSetClipboard(&obj).is_ok()
     }

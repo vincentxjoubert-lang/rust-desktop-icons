@@ -7,11 +7,13 @@ mod i18n;
 mod layered;
 mod prefs;
 mod render;
+mod report;
 mod rules;
 mod settings;
 mod shell;
 mod store;
 mod tray;
+mod uninstall;
 mod update;
 mod win;
 

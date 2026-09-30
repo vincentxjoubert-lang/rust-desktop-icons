@@ -1,13 +1,16 @@
 use crate::{
     app::with,
     domain::{Kind, kind::transient},
-    fence, shell, store,
+    fence,
+    i18n::T,
+    report, shell, store,
 };
 use std::{
     collections::HashSet,
     fs,
     os::windows::fs::MetadataExt,
     path::{Path, PathBuf},
+    time::Duration,
 };
 use windows::Win32::{
     Foundation::HWND,
@@ -17,13 +20,20 @@ use windows::Win32::{
 pub const WM_DESK: u32 = WM_APP + 20;
 pub const TIMER: usize = 7;
 const OWN_SHORTCUT: &str = "Rust Desktop Icons.lnk";
+const SETTLE: Duration = Duration::from_secs(10);
+const RETRY_MS: u32 = 3000;
+
+fn settled(p: &Path) -> bool {
+    let Ok(m) = fs::metadata(p) else { return false };
+    [m.modified(), m.created()].into_iter().flatten().filter_map(|t| t.elapsed().ok()).all(|age| age >= SETTLE)
+}
 
 fn entries(desk: &Path) -> HashSet<PathBuf> {
     fs::read_dir(desk).into_iter().flatten().flatten().map(|e| e.path()).collect()
 }
 
 fn movable(p: &Path) -> bool {
-    let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let name = store::name(p).to_lowercase();
     let hidden = fs::metadata(p).is_ok_and(|m| m.file_attributes() & 0x6 != 0);
     !hidden && name != "desktop.ini" && name != OWN_SHORTCUT.to_lowercase() && !transient(p.extension().and_then(|e| e.to_str()))
 }
@@ -48,21 +58,32 @@ pub fn run(tray: Option<HWND>, all: bool) {
     }
     let Some(desk) = shell::desktop() else { return };
     let Some((cfg, seen)) = with(|a| (a.cfg.clone(), a.seen.clone())) else { return };
-    let mut moved = 0;
+    let (mut moved, mut errors, mut pending) = (0, vec![], HashSet::new());
     if all || cfg.auto_sort {
         for p in entries(&desk).into_iter().filter(|p| (all || !seen.contains(p)) && movable(p)) {
+            if !all && !settled(&p) {
+                pending.insert(p);
+                continue;
+            }
             let kind = Kind::of(p.extension().and_then(|e| e.to_str()), p.is_dir());
             let tab = kind
                 .and_then(|k| cfg.rule_target(k))
                 .and_then(|(f, t)| cfg.fences.iter().find(|x| x.id == f)?.tabs.iter().find(|x| x.id == t));
             if let Some(tab) = tab {
-                moved += store::move_into(&p, &store::tab_dir(tab)).is_ok() as usize;
+                match store::move_into(&p, &store::tab_dir(tab)) {
+                    Ok(_) => moved += 1,
+                    Err(e) => errors.push(format!("{} ({e})", store::name(&p))),
+                }
             }
         }
     }
-    let now = entries(&desk);
+    let now = entries(&desk).into_iter().filter(|p| !pending.contains(p)).collect();
     with(|a| a.seen = now);
+    if let (Some(t), false) = (tray, pending.is_empty()) {
+        unsafe { SetTimer(Some(t), TIMER, RETRY_MS, None) };
+    }
     if moved > 0 {
         fence::reload_all();
     }
+    report::failures(T::ErrMove, &errors);
 }

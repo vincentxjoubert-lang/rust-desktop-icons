@@ -3,11 +3,11 @@ use crate::{
     app::with,
     domain::grid,
     layered::{Dib, Frame, WHITE},
-    render::opaque_if_flat,
-    shell::DragImage,
+    render::{opaque_if_flat, straight},
+    shell::{self, DragImage},
     win::*,
 };
-use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
+use windows::Win32::Foundation::HWND;
 
 pub(super) fn image(h: HWND, index: usize, (cx, cy): (i32, i32)) -> Option<DragImage> {
     let s = |v| scale(h, v);
@@ -19,8 +19,7 @@ pub(super) fn image(h: HWND, index: usize, (cx, cy): (i32, i32)) -> Option<DragI
         let item = v.items.get_mut(index)?;
         frame.text_w(font, &mut item.name, &mut cell::label_at((0, 0), cell, icon, s), cell::LABEL);
         frame.target(&icons);
-        let (ix, iy) = cell::icon_at((0, 0), cell, icon, s);
-        let _ = unsafe { DrawIconEx(frame.dc(), ix, iy, item.icon, icon, icon, 0, None, DI_NORMAL) };
+        shell::draw_icon(frame.dc(), item.icon, cell::icon_at((0, 0), cell, icon, s), icon);
         Some(())
     })
     .flatten()?;
@@ -32,5 +31,6 @@ pub(super) fn image(h: HWND, index: usize, (cx, cy): (i32, i32)) -> Option<DragI
     frame.text_layers(WHITE, 0, s(2), (0, cell));
     let (x, y) = grid::origin(index, client_rect(h).right, cell);
     let offset = (cx - x, cy - y);
+    straight(frame.canvas.px());
     Some(DragImage { bitmap: frame.export_bitmap()?, size: (cell, cell), offset })
 }

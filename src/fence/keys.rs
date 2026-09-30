@@ -1,13 +1,10 @@
-use super::{edit, fence_of, native, reload, reload_all, screen_cursor, select};
+use super::{edit, fence_of, native, reload, reload_all, select};
 use crate::{
     shell::{self, clip},
     store,
+    win::{cursor_pos, key_down},
 };
 use windows::Win32::{Foundation::HWND, UI::Input::KeyboardAndMouse::*};
-
-fn down(k: VIRTUAL_KEY) -> bool {
-    (unsafe { GetKeyState(k.0 as i32) }) < 0
-}
 
 fn paste(h: HWND) {
     let (Some((files, cut)), Some(f)) = (clip::get(), fence_of(h)) else { return };
@@ -17,7 +14,7 @@ fn paste(h: HWND) {
 }
 
 pub(super) fn handle(h: HWND, vk: u16) -> bool {
-    let (ctrl, shift, k) = (down(VK_CONTROL), down(VK_SHIFT), VIRTUAL_KEY(vk));
+    let (ctrl, shift, k) = (key_down(VK_CONTROL), key_down(VK_SHIFT), VIRTUAL_KEY(vk));
     let sel = select::selection(h);
     match k {
         VK_DELETE if !sel.is_empty() => {
@@ -38,7 +35,7 @@ pub(super) fn handle(h: HWND, vk: u16) -> bool {
         }
         VK_V if ctrl => paste(h),
         VK_APPS | VK_F10 if (k == VK_APPS || shift) && !sel.is_empty() => {
-            native::show(h, &sel, screen_cursor());
+            native::show(h, &sel, cursor_pos());
         }
         _ => return false,
     }

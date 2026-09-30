@@ -1,23 +1,17 @@
 use super::{fence_of, update};
-use crate::{app::with, i18n::T, rules, shell, store, win::*};
-use std::{fs, path::Path};
+use crate::{app::with, i18n::T, report, rules, shell, store, win::*};
+use std::path::Path;
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
 
 pub(super) fn confirm(h: HWND, q: T) -> bool {
     with(|a| (a.t(q), a.rtl())).is_some_and(|(q, rtl)| msgbox(Some(h), q, MB_YESNO | MB_ICONQUESTION, rtl) == IDYES)
 }
 
-pub(super) fn restore(p: &Path) {
-    if let Some(moved) = shell::desktop().and_then(|d| store::move_into(p, &d).ok()) {
-        rules::ignore(moved);
-    }
-}
-
-pub(super) fn evacuate(dir: &Path) -> bool {
-    for e in fs::read_dir(dir).into_iter().flatten().flatten() {
-        restore(&e.path());
-    }
-    fs::remove_dir(dir).is_ok() || !dir.exists()
+pub(super) fn evacuate(dir: &Path) -> Vec<String> {
+    let Some(desk) = shell::desktop() else { return vec![String::from("Desktop")] };
+    let (moved, errors) = store::evacuate(dir, &desk);
+    moved.into_iter().for_each(rules::ignore);
+    errors
 }
 
 pub(super) fn color(h: HWND) {
@@ -38,8 +32,9 @@ pub(super) fn delete(h: HWND) {
         return;
     }
     with(|a| a.view(h).map(|v| v.watches.clear()));
-    let kept = f.tabs.iter().filter(|t| t.portal.is_none()).map(store::tab_dir).filter(|d| !evacuate(d)).count();
-    if kept > 0 {
+    let errors: Vec<String> = f.tabs.iter().filter(|t| t.portal.is_none()).flat_map(|t| evacuate(&store::tab_dir(t))).collect();
+    if !errors.is_empty() {
+        report::failures(T::ErrDelete, &errors);
         return super::bind(h);
     }
     with(|a| {

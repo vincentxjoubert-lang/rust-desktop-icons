@@ -1,23 +1,11 @@
 use crate::{domain::Fence, shell};
 use std::{collections::HashSet, path::PathBuf};
-use windows::Win32::{
-    Foundation::HWND,
-    UI::Shell::IContextMenu,
-    UI::WindowsAndMessaging::{DestroyIcon, HICON},
-};
+use windows::Win32::{Foundation::HWND, UI::Shell::IContextMenu};
 
 pub struct Item {
     pub path: PathBuf,
     pub name: Vec<u16>,
-    pub icon: HICON,
-}
-
-impl Drop for Item {
-    fn drop(&mut self) {
-        if !self.icon.is_invalid() {
-            unsafe { DestroyIcon(self.icon).ok() };
-        }
-    }
+    pub icon: i32,
 }
 
 pub struct View {
@@ -35,6 +23,8 @@ pub struct View {
     pub tick: Option<std::time::Instant>,
     pub watches: Vec<shell::Watch>,
     pub cache: Vec<(u64, Vec<Item>)>,
+    pub gens: Vec<(u64, u64)>,
+    pub dirty: Vec<usize>,
     pub selected: HashSet<PathBuf>,
     pub band: Option<((i32, i32), (i32, i32))>,
 }
@@ -58,6 +48,8 @@ impl View {
             tick: None,
             watches: vec![],
             cache: vec![],
+            gens: vec![],
+            dirty: vec![],
             selected: HashSet::new(),
             band: None,
         }

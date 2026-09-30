@@ -6,7 +6,7 @@ use crate::{
     domain::{Config, Fence},
     fence,
     i18n::{self, T},
-    rules, settings, shell, store, tray,
+    report, rules, settings, shell, store, tray,
     win::*,
 };
 pub use fences::{new_fence, rebuild, register_verb};
@@ -31,6 +31,8 @@ pub struct App {
     pub seen: HashSet<PathBuf>,
     pub desk: Option<shell::Watch>,
     pub panel: Option<settings::Panel>,
+    save_error: Option<String>,
+    save_reported: bool,
 }
 
 impl App {
@@ -59,8 +61,22 @@ impl App {
         self.fence(id)
     }
 
-    pub fn save(&self) {
-        let _ = store::save(&self.cfg);
+    pub fn save(&mut self) {
+        if let Err(e) = store::save(&self.cfg) {
+            report::log(&format!("save failed: {e}"));
+            self.save_error.get_or_insert(e.to_string());
+        }
+    }
+}
+
+pub fn save_now() {
+    with(|a| a.save());
+    check_save();
+}
+
+pub fn check_save() {
+    if let Some(e) = with(|a| a.save_error.take().filter(|_| !std::mem::replace(&mut a.save_reported, true))).flatten() {
+        report::alert(T::ErrSave, &e);
     }
 }
 
@@ -69,6 +85,7 @@ pub fn change(f: impl FnOnce(&mut Config)) {
         f(&mut a.cfg);
         a.save();
     });
+    check_save();
 }
 
 thread_local! {
@@ -80,30 +97,48 @@ pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 }
 
 pub fn run() {
+    if std::env::args().any(|a| a == shell::UNINSTALL_ARG) {
+        return crate::uninstall::run();
+    }
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         let name = if cfg!(debug_assertions) { w!("Local\\RustDesktopIcons.dev") } else { w!("Local\\RustDesktopIcons") };
         let _mutex = CreateMutexW(None, true, name);
+        let running = GetLastError() == ERROR_ALREADY_EXISTS;
         let new = std::env::args().any(|a| a == shell::NEW_ARG);
-        if GetLastError() == ERROR_ALREADY_EXISTS {
+        if running {
             tray::request(new);
             return;
         }
+        report::install_panic_hook();
         let _ = OleInitialize(None);
         register(fence::CLASS, Some(fence::proc));
         settings::register_class();
         let Some(tray) = tray::create() else { return };
-        let cfg = store::load();
+        let (cfg, damaged) = store::load();
         if !cfg.autostart {
             shell::set_autostart(false);
         }
         tray::updates::enable(cfg.auto_update);
         let taskbar = RegisterWindowMessageW(w!("TaskbarCreated"));
         APP.with(|a| {
-            *a.borrow_mut() =
-                Some(App { cfg, views: vec![], fonts: vec![], glyphs: vec![], taskbar, seen: HashSet::new(), desk: None, panel: None })
+            *a.borrow_mut() = Some(App {
+                cfg,
+                views: vec![],
+                fonts: vec![],
+                glyphs: vec![],
+                taskbar,
+                seen: HashSet::new(),
+                desk: None,
+                panel: None,
+                save_error: None,
+                save_reported: false,
+            })
         });
         tray::icon(tray, NIM_ADD);
+        if let Some(bad) = damaged {
+            report::alert(T::ErrConfig, &bad.display().to_string());
+        }
         rebuild();
         rules::watch(tray);
         register_verb();
@@ -119,6 +154,7 @@ pub fn run() {
             }
         }
         tray::icon(tray, NIM_DELETE);
+        save_now();
         APP.with(|a| a.borrow_mut().take());
     }
 }

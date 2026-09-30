@@ -1,6 +1,6 @@
 use super::{View, with};
 use crate::{domain::Fence, fence, i18n::T, shell, store, win::*};
-use windows::Win32::{Foundation::POINT, UI::WindowsAndMessaging::*};
+use windows::Win32::UI::WindowsAndMessaging::*;
 
 pub fn register_verb() {
     if let Some(label) = with(|a| a.t(T::DesktopVerb)).filter(|_| !cfg!(debug_assertions)) {
@@ -9,11 +9,10 @@ pub fn register_verb() {
 }
 
 pub fn new_fence() {
-    let mut p = POINT::default();
-    unsafe { GetCursorPos(&mut p).ok() };
+    let (px, py) = cursor_pos();
     let s = sys_scale;
     let Some(f) = with(|a| {
-        let f = Fence::new(a.cfg.next_id(), a.t(T::Fence), (p.x - s(180), p.y - s(120), s(360), s(240)), a.cfg.look.clone());
+        let f = Fence::new(a.cfg.next_id(), a.t(T::Fence), (px - s(180), py - s(120), s(360), s(240)), a.cfg.look.clone());
         a.cfg.fences.push(f.clone());
         a.save();
         f

@@ -6,6 +6,7 @@ const RUN: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const NAME: &str = "RustDesktopIcons";
 const VERB: &str = "Software\\Classes\\DesktopBackground\\Shell\\RustDesktopIcons";
 pub const NEW_ARG: &str = "--new";
+pub const UNINSTALL_ARG: &str = "--uninstall";
 
 fn exe() -> Option<String> {
     env::current_exe().ok().map(|e| e.display().to_string())

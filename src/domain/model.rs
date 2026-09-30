@@ -30,6 +30,10 @@ impl Look {
         (self.alpha as u32 * 100 + 127) / 255
     }
 
+    pub fn label(pct: u32) -> String {
+        format!("{pct}%")
+    }
+
     pub fn alpha_for(pct: u32) -> u8 {
         (pct.min(100) * 255 / 100) as u8
     }
@@ -65,6 +69,7 @@ pub struct Fence {
     pub w: i32,
     pub h: i32,
     pub rolled: bool,
+    pub locked: bool,
     #[serde(flatten)]
     pub look: Look,
     pub tabs: Vec<Tab>,
@@ -73,7 +78,19 @@ pub struct Fence {
 
 impl Default for Fence {
     fn default() -> Self {
-        Self { id: 0, title: String::new(), x: 100, y: 100, w: 360, h: 240, rolled: false, look: Look::default(), tabs: vec![], tab: 0 }
+        Self {
+            id: 0,
+            title: String::new(),
+            x: 100,
+            y: 100,
+            w: 360,
+            h: 240,
+            rolled: false,
+            locked: false,
+            look: Look::default(),
+            tabs: vec![],
+            tab: 0,
+        }
     }
 }
 

@@ -56,12 +56,12 @@ fn perform(h: HWND, act: rows::Act) {
             }
         }
         Opacity => {
-            if let Some(p) = pick(h, &Look::PERCENTS, l.percent(), |p| format!("{p}%")) {
+            if let Some(p) = pick(h, &Look::PERCENTS, l.percent(), Look::label) {
                 change(|c| c.look.alpha = Look::alpha_for(p));
             }
         }
         IconSize => {
-            if let Some(px) = pick(h, &icons::SIZES, l.icon, |px| format!("{px} px")) {
+            if let Some(px) = pick(h, &icons::SIZES, l.icon, icons::label) {
                 change(|c| c.look.icon = px);
             }
         }

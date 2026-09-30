@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, fs, os::windows::process::CommandExt, path::PathBuf, process::Command};
+use std::{env, error::Error, fs, os::windows::process::CommandExt, path::PathBuf, process::Command, time::Duration};
 
 const REPO: &str = "vincentxjoubert-lang/rust-desktop-icons";
 const MAX_MSI: u64 = 64 << 20;
@@ -8,7 +8,28 @@ const MAX_MSI: u64 = 64 << 20;
 pub enum Outcome {
     Current,
     Failed,
-    Installing,
+    Installed,
+    InstallFailed(u32),
+}
+
+impl Outcome {
+    pub fn encode(self) -> usize {
+        match self {
+            Outcome::Current => 0,
+            Outcome::Failed => 1,
+            Outcome::Installed => 2,
+            Outcome::InstallFailed(c) => 3 | (c as usize) << 8,
+        }
+    }
+
+    pub fn decode(v: usize) -> Outcome {
+        match v & 0xFF {
+            0 => Outcome::Current,
+            2 => Outcome::Installed,
+            3 => Outcome::InstallFailed((v >> 8) as u32),
+            _ => Outcome::Failed,
+        }
+    }
 }
 
 type Res<T> = Result<T, Box<dyn Error>>;
@@ -23,10 +44,17 @@ pub fn run() -> Outcome {
     match fetch() {
         Ok(None) => Outcome::Current,
         Ok(Some(msi)) => match install(&msi) {
-            Ok(()) => Outcome::Installing,
-            Err(_) => Outcome::Failed,
+            Ok(0 | 1641 | 3010) => Outcome::Installed,
+            Ok(code) => Outcome::InstallFailed(code),
+            Err(e) => {
+                crate::report::log(&format!("msiexec: {e}"));
+                Outcome::InstallFailed(0)
+            }
         },
-        Err(_) => Outcome::Failed,
+        Err(e) => {
+            crate::report::log(&format!("update check: {e}"));
+            Outcome::Failed
+        }
     }
 }
 
@@ -35,7 +63,9 @@ fn get(url: &str, limit: u64) -> Res<Vec<u8>> {
     if !url.starts_with(&prefix) && !url.starts_with("https://api.github.com/") {
         return Err("untrusted url".into());
     }
-    let mut r = ureq::get(url)
+    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(30))).build().into();
+    let mut r = agent
+        .get(url)
         .header("User-Agent", concat!("rust-desktop-icons/", env!("CARGO_PKG_VERSION")))
         .header("Accept", "application/vnd.github+json")
         .call()?;
@@ -72,15 +102,15 @@ fn verify(data: &[u8], sum: &str) -> bool {
     sum.split_whitespace().next().is_some_and(|s| s.eq_ignore_ascii_case(&hex))
 }
 
-fn install(msi: &PathBuf) -> Res<()> {
+fn install(msi: &PathBuf) -> Res<u32> {
     let sys = env::var_os("SystemRoot").map(PathBuf::from).ok_or("no SystemRoot")?;
-    Command::new(sys.join("System32").join("msiexec.exe"))
+    let status = Command::new(sys.join("System32").join("msiexec.exe"))
         .arg("/i")
         .arg(msi)
         .args(["/qn", "/norestart"])
         .creation_flags(0x0800_0000)
-        .spawn()?;
-    Ok(())
+        .status()?;
+    Ok(status.code().unwrap_or(-1) as u32)
 }
 
 #[cfg(test)]
@@ -95,6 +125,13 @@ mod tests {
         assert_eq!(parse("1.2"), None);
         assert_eq!(parse("1.2.3.4"), None);
         assert_eq!(parse("1.x.3"), None);
+    }
+
+    #[test]
+    fn outcome_roundtrip() {
+        for o in [Outcome::Current, Outcome::Failed, Outcome::Installed, Outcome::InstallFailed(1618)] {
+            assert_eq!(Outcome::decode(o.encode()), o);
+        }
     }
 
     #[test]

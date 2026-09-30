@@ -9,6 +9,7 @@ mod header;
 mod items;
 mod keys;
 mod layout;
+mod loader;
 mod menu;
 mod native;
 mod paint;
@@ -44,6 +45,7 @@ const TITLE: i32 = 34;
 const BORDER: i32 = 6;
 const EN_KILLFOCUS: u32 = 0x0200;
 const MK_CONTROL: usize = 0x0008;
+const TABS: usize = 64;
 const RELOAD: usize = 1;
 const PEEK: usize = 2;
 const ANIM: usize = 3;
@@ -62,14 +64,8 @@ fn to_client(h: HWND, (x, y): (i32, i32)) -> (i32, i32) {
     (p.x, p.y)
 }
 
-fn screen_cursor() -> (i32, i32) {
-    let mut p = POINT::default();
-    let _ = unsafe { GetCursorPos(&mut p) };
-    (p.x, p.y)
-}
-
 fn cursor(h: HWND) -> (i32, i32) {
-    to_client(h, screen_cursor())
+    to_client(h, cursor_pos())
 }
 
 fn fence_of(h: HWND) -> Option<Fence> {
@@ -82,6 +78,7 @@ fn update(h: HWND, f: impl FnOnce(&mut Fence)) {
         a.save();
         Some(())
     });
+    crate::app::check_save();
     layout::apply(h);
 }
 
@@ -138,7 +135,11 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             unsafe { SetWindowPos(h, None, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE).ok() };
         }
         WM_MOVING => {
-            snap::moving(h, lp);
+            if fence_of(h).is_some_and(|f| f.locked) {
+                unsafe { *(lp.0 as *mut RECT) = window_rect(h) };
+            } else {
+                snap::moving(h, lp);
+            }
             return LRESULT(1);
         }
         WM_SIZING => {
@@ -175,12 +176,15 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             render(h);
         }
         WM_DESTROY => target::revoke(h),
-        WM_CHANGED => {
+        m if (WM_CHANGED..WM_CHANGED + TABS as u32).contains(&m) => {
+            let i = (m - WM_CHANGED) as usize;
+            with(|a| a.view(h).map(|v| (!v.dirty.contains(&i)).then(|| v.dirty.push(i))));
             unsafe { SetTimer(Some(h), RELOAD, 150, None) };
         }
+        loader::WM_LOADED => loader::receive(h, lp),
         WM_TIMER if wp.0 == RELOAD => {
             let _ = unsafe { KillTimer(Some(h), RELOAD) };
-            reload(h);
+            items::refresh(h);
         }
         WM_TIMER if wp.0 == PEEK => peek::check(h),
         WM_TIMER if wp.0 == ANIM => anim::tick(h),

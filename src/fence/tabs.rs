@@ -1,9 +1,9 @@
-use super::{TITLE, WM_CHANGED, actions, fence_of, layout, reload, to_client, update};
+use super::{TABS, TITLE, WM_CHANGED, actions, fence_of, layout, reload, to_client, update};
 use crate::{
     app::with,
     domain::{Tab, grid},
     i18n::T,
-    shell, store,
+    report, shell, store,
     win::*,
 };
 use std::path::PathBuf;
@@ -12,7 +12,18 @@ use windows::Win32::{Foundation::*, UI::Input::KeyboardAndMouse::DragDetect};
 pub fn bind(h: HWND) {
     let Some(dirs) = with(|a| a.fence_of(h).map(|f| f.tabs.iter().map(store::tab_dir).collect::<Vec<_>>())).flatten() else { return };
     with(|a| a.view(h).map(|v| v.watches.clear()));
-    let watches = dirs.iter().filter_map(|d| shell::Watch::new(h, d, WM_CHANGED)).collect();
+    let watches = dirs
+        .iter()
+        .enumerate()
+        .take(TABS)
+        .filter_map(|(i, d)| {
+            let w = shell::Watch::new(h, d, WM_CHANGED + i as u32);
+            if w.is_none() {
+                report::log(&format!("cannot watch {}", d.display()));
+            }
+            w
+        })
+        .collect();
     with(|a| a.view(h).map(|v| (v.watches, v.scroll) = (watches, 0)));
     reload(h);
 }
@@ -45,7 +56,6 @@ pub(super) fn select(h: HWND, i: usize) {
         }
         let (old, new) = (f.active().id, f.tabs[i].id);
         f.tab = i;
-        a.save();
         let v = a.view(h)?;
         let items = std::mem::take(&mut v.items);
         v.cache.push((old, items));
@@ -94,8 +104,12 @@ pub(super) fn remove(h: HWND) {
     if tab.portal.is_none() && !actions::confirm(h, T::ConfirmDeleteTab) {
         return;
     }
-    if tab.portal.is_none() && !actions::evacuate(&store::tab_dir(&tab)) {
-        return reload(h);
+    if tab.portal.is_none() {
+        let errors = actions::evacuate(&store::tab_dir(&tab));
+        if !errors.is_empty() {
+            report::failures(T::ErrDelete, &errors);
+            return reload(h);
+        }
     }
     update(h, |f| {
         f.tabs.retain(|t| t.id != tab.id);

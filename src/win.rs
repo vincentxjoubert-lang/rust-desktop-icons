@@ -7,7 +7,7 @@ use windows::{
         UI::{
             Controls::Dialogs::*,
             HiDpi::{GetDpiForSystem, GetDpiForWindow},
-            Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent},
+            Input::KeyboardAndMouse::{GetKeyState, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, VIRTUAL_KEY},
             WindowsAndMessaging::*,
         },
     },
@@ -59,6 +59,16 @@ pub fn track_leave(h: HWND) {
     let _ = unsafe { TrackMouseEvent(&mut tme) };
 }
 
+pub fn cursor_pos() -> (i32, i32) {
+    let mut p = POINT::default();
+    let _ = unsafe { GetCursorPos(&mut p) };
+    (p.x, p.y)
+}
+
+pub fn key_down(k: VIRTUAL_KEY) -> bool {
+    (unsafe { GetKeyState(k.0 as i32) }) < 0
+}
+
 pub fn sys_scale(v: i32) -> i32 {
     v * unsafe { GetDpiForSystem() }.max(96) as i32 / 96
 }
@@ -94,15 +104,12 @@ pub fn msgbox(h: Option<HWND>, text: &str, style: MESSAGEBOX_STYLE, rtl: bool) -
 }
 
 pub fn menu() -> HMENU {
-    let m = unsafe { CreatePopupMenu().unwrap_or_default() };
-    let info = MENUINFO { cbSize: size_of::<MENUINFO>() as u32, fMask: MIM_STYLE, dwStyle: MNS_CHECKORBMP, ..Default::default() };
-    let _ = unsafe { SetMenuInfo(m, &info) };
-    m
+    unsafe { CreatePopupMenu().unwrap_or_default() }
 }
 
 pub fn item(m: HMENU, id: usize, text: &str, checked: bool) {
-    let flags = if checked { MF_STRING | MF_CHECKED } else { MF_STRING };
-    unsafe { AppendMenuW(m, flags, id, PCWSTR(wide(text).as_ptr())).ok() };
+    let label = if checked { format!("{text}\t\u{2713}") } else { text.to_string() };
+    unsafe { AppendMenuW(m, MF_STRING, id, PCWSTR(wide(&label).as_ptr())).ok() };
 }
 
 pub fn icon(m: HMENU, item: u32, by_position: bool, bmp: HBITMAP) {
@@ -120,11 +127,10 @@ pub fn separator(m: HMENU) {
 
 pub fn popup(h: HWND, m: HMENU, rtl: bool) -> usize {
     unsafe {
-        let mut p = POINT::default();
-        let _ = GetCursorPos(&mut p);
+        let (x, y) = cursor_pos();
         let _ = SetForegroundWindow(h);
         let align = if rtl { TPM_LAYOUTRTL | TPM_RIGHTALIGN } else { TPM_LEFTALIGN };
-        let r = TrackPopupMenu(m, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON | align, p.x, p.y, None, h, None);
+        let r = TrackPopupMenu(m, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON | align, x, y, None, h, None);
         let _ = DestroyMenu(m);
         let _ = PostMessageW(Some(h), WM_NULL, WPARAM(0), LPARAM(0));
         r.0 as usize

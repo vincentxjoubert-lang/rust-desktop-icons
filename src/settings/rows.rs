@@ -1,5 +1,6 @@
 use crate::{
     app::App,
+    domain::{Look, icons},
     i18n::{self, T},
     layered::glyph as g,
     prefs,
@@ -63,8 +64,8 @@ pub fn build(a: &App) -> Vec<Row> {
     let mut rows = vec![
         header(a.t(T::Appearance)),
         row(a.t(T::Color), Ctl::Swatch(Some(l.color)), Act::Color, g::COLOR),
-        row(a.t(T::Opacity), Ctl::Value(format!("{}%", l.percent())), Act::Opacity, g::OPACITY),
-        row(a.t(T::IconSize), Ctl::Value(format!("{} px", l.icon)), Act::IconSize, g::SIZE),
+        row(a.t(T::Opacity), Ctl::Value(Look::label(l.percent())), Act::Opacity, g::OPACITY),
+        row(a.t(T::IconSize), Ctl::Value(icons::label(l.icon)), Act::IconSize, g::SIZE),
         row(a.t(T::Tint), Ctl::Swatch(l.tint), Act::Tint, g::TINT),
         row(a.t(T::ApplyAll), Ctl::Button, Act::ApplyAll, g::CHECK),
         header(a.t(T::Behavior)),

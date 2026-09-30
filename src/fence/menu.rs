@@ -1,4 +1,4 @@
-use super::{actions, arrange, cursor, edit, fence_of, items, native, peek, screen_cursor, select, tabs, update};
+use super::{actions, arrange, cursor, edit, fence_of, items, native, peek, select, tabs, update};
 use crate::{
     app::with,
     domain::{Look, icons},
@@ -15,17 +15,17 @@ pub(super) fn context(h: HWND) {
         tabs::select(h, i);
     }
     if let Some(t) = items::item_at(h, p) {
-        return native::show(h, &select::focus(h, &t), screen_cursor());
+        return native::show(h, &select::focus(h, &t), cursor_pos());
     }
     let Some(f) = fence_of(h) else { return };
     let Some((m, rtl)) = with(|a| {
         let m = menu();
         let (o, sizes, tint) = (menu(), menu(), menu());
         for (k, &pct) in Look::PERCENTS.iter().enumerate() {
-            item(o, 20 + k, &format!("{pct}%"), f.look.alpha == Look::alpha_for(pct));
+            item(o, 20 + k, &Look::label(pct), f.look.alpha == Look::alpha_for(pct));
         }
         for (k, &px) in icons::SIZES.iter().enumerate() {
-            item(sizes, 40 + k, &format!("{px} px"), f.look.icon == px);
+            item(sizes, 40 + k, &icons::label(px), f.look.icon == px);
         }
         item(tint, 50, a.t(T::None), f.look.tint.is_none());
         item(tint, 51, a.t(T::Color), f.look.tint.is_some());
@@ -37,6 +37,7 @@ pub(super) fn context(h: HWND) {
         arrange::submenus(a, m, f.active());
         a.entry(m, 16, T::Chameleon, f.look.chameleon, g::EYE);
         a.entry(m, 18, T::AutoHeight, f.look.auto_height, g::HEIGHT);
+        a.entry(m, 19, T::Lock, f.locked, g::LOCK);
         a.entry(m, 12, T::Roll, f.rolled, g::ROLL);
         separator(m);
         a.entry(m, 60, T::NewTab, false, g::TAB);
@@ -70,6 +71,7 @@ pub(super) fn context(h: HWND) {
         }
         17 => settings::open(),
         18 => update(h, |f| f.look.auto_height ^= true),
+        19 => update(h, |f| f.locked ^= true),
         k @ 20..=27 => update(h, |f| f.look.alpha = Look::alpha_for(Look::PERCENTS[k - 20])),
         k @ 40..=47 => items::set_icon(h, icons::SIZES[k - 40]),
         50 => update(h, |f| f.look.tint = None),

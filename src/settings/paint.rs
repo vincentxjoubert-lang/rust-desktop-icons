@@ -32,7 +32,7 @@ pub(super) fn render(h: HWND) {
     let s = |v| scale(h, v);
     let Some(mut frame) = Frame::new(w, ht) else { return };
     let close = close_rect(h);
-    with(|a| {
+    let drawn = with(|a| {
         let (title, bold, normal, icons) =
             (a.font(s(18), FW_SEMIBOLD.0), a.font(s(12), FW_SEMIBOLD.0), a.font(s(13), FW_NORMAL.0), a.icon_font(s(15)));
         let rows = rows::build(a);
@@ -101,7 +101,9 @@ pub(super) fn render(h: HWND) {
         frame.canvas().rrect((0, 0, w, ht), s(12) as f32, flat(premul(WHITE, 40)), (0, ht), true);
         #[cfg(debug_assertions)]
         frame.dump("settings");
-        frame.present(h, (wr.left, wr.top), 255);
         Some(())
     });
+    if drawn.flatten().is_some() {
+        frame.present(h, (wr.left, wr.top), 255);
+    }
 }

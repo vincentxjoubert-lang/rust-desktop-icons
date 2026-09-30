@@ -1,13 +1,13 @@
 use super::edit;
-use crate::{app::with, shell::menu};
+use crate::{app::with, shell::menu, win::key_down};
 use std::path::PathBuf;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-    UI::Input::KeyboardAndMouse::{GetKeyState, VK_SHIFT},
+    UI::Input::KeyboardAndMouse::VK_SHIFT,
 };
 
 pub(super) fn show(h: HWND, paths: &[PathBuf], at: (i32, i32)) {
-    let extended = (unsafe { GetKeyState(VK_SHIFT.0 as i32) }) < 0;
+    let extended = key_down(VK_SHIFT);
     let Some(native) = menu::build(paths, extended) else { return };
     with(|a| a.view(h).map(|v| v.native = Some(native.cm.clone())));
     let id = native.track(h, at);

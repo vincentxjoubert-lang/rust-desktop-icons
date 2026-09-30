@@ -8,6 +8,17 @@ use windows::{
     core::*,
 };
 
+impl Drop for App {
+    fn drop(&mut self) {
+        for &(_, f) in &self.fonts {
+            let _ = unsafe { DeleteObject(f.into()) };
+        }
+        for &(_, b) in &self.glyphs {
+            let _ = unsafe { DeleteObject(b.into()) };
+        }
+    }
+}
+
 impl App {
     pub fn font(&mut self, px: i32, weight: u32) -> HFONT {
         self.cached(px * 1000 + weight as i32, w!("Segoe UI"), px, weight)

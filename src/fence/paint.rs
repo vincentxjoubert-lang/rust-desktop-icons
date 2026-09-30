@@ -4,9 +4,10 @@ use crate::{
     domain::{anim, color, grid},
     layered::{ACCENT, Dib, Frame, WHITE},
     render::{flat, opaque_if_flat, premul, tint},
+    shell,
     win::*,
 };
-use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
+use windows::Win32::Foundation::*;
 
 pub fn render(h: HWND) {
     let wr = window_rect(h);
@@ -17,7 +18,7 @@ pub fn render(h: HWND) {
         return;
     };
     let full = fence_of(h).map_or(ht, |f| layout::full(h, &f));
-    with(|a| unsafe {
+    let alpha = with(|a| {
         let (ft, fi) = (title_font(a, h), label_font(a, h));
         let f = a.fence_of(h)?.clone();
         let v = a.view(h)?;
@@ -37,8 +38,7 @@ pub fn render(h: HWND) {
         }
         frame.target(&icons);
         for &(i, x, y) in &cells {
-            let (ix, iy) = cell::icon_at((x, y), cell, icon, s);
-            let _ = DrawIconEx(frame.dc(), ix, iy, v.items[i].icon, icon, icon, 0, None, DI_NORMAL);
+            shell::draw_icon(frame.dc(), v.items[i].icon, cell::icon_at((x, y), cell, icon, s), icon);
         }
         frame.flush();
         for &(_, x, y) in &cells {
@@ -81,7 +81,9 @@ pub fn render(h: HWND) {
         frame.canvas().rrect(full, rad, flat(premul(WHITE, 48)), rows, true);
         #[cfg(debug_assertions)]
         frame.dump(&f.id.to_string());
-        frame.present(h, (wr.left, wr.top), anim::opacity(v.glow));
-        Some(())
+        Some(anim::opacity(v.glow))
     });
+    if let Some(alpha) = alpha.flatten() {
+        frame.present(h, (wr.left, wr.top), alpha);
+    }
 }

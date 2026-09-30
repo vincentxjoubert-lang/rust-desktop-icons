@@ -23,7 +23,10 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - `src/domain/` pure logic, all unit-tested: `model.rs` (Config/Fence/Tab/Look), `kind.rs` (file types for rules),
   `order.rs` (per-tab sort + custom order), `anim.rs`, `grid.rs`, `snap.rs`, `icons.rs`, `color.rs`, `zone.rs`.
 - `store.rs` persistence (`tab_dir`: portal path or `fences/<tab id>`); `i18n/` (`mod.rs` logic, `table.rs` 25 languages);
-  `update.rs` updater; `rules.rs` desktop watcher + auto-sort; `prefs.rs` global prefs shared by tray and settings.
+  `update.rs` updater (30 s network timeout, waits for msiexec; the MSI closes/relaunches the app);
+  `rules.rs` desktop watcher + auto-sort (files younger than 10 s are retried later); `prefs.rs` global prefs;
+  `report.rs` errors: `report::alert` (dialog + `errors.log`), `report::log`, panic hook -> `crash.log`;
+  `uninstall.rs` (`--uninstall`, run by the MSI on real uninstall only: moves fence contents back to the desktop).
 - `src/app/` global state: `mod.rs` App + `with` + startup, `view.rs` per-window state, `res.rs` fonts/glyphs/menu
   entries with icons, `fences.rs` create/rebuild fences; `src/tray/` tray icon/menu (`updates.rs` update scheduling).
 - `src/layered/` shared per-pixel window painting (`Frame`: text mask, compositing, present; `Dib`; `glyph.rs`
@@ -43,6 +46,14 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Global state is `thread_local RefCell` accessed only via `app::with` (try_borrow). Never call Win32 APIs that
   send messages (DestroyWindow, SetWindowPos, TrackPopupMenu, MessageBox, CreateWindow) inside `with`.
 - New UI string: add a `T` variant and translate it in all 25 rows of `i18n.rs` (tests check completeness).
+
+## Robustness rules
+- Never ignore a user-visible failure: collect errors and call `report::failures`/`report::alert` outside `app::with`.
+- `store::save` keeps `config.json.bak`; an unreadable config is renamed `config.json.bad-<ts>` and never overwritten.
+- Items keep a system image-list index (`Item.icon: i32`), never an HICON: icons are drawn on demand via
+  `shell::draw_icon`. Folder reads + icon lookups run on a thread (`fence/loader.rs`, per-tab generations);
+  each tab has its own change message (`WM_CHANGED + tab index`, `WM_LOADED` sits after that range).
+- Present layered windows outside `app::with` (UpdateLayeredWindow re-enters the window proc).
 
 ## Gotchas
 - Debug builds use a separate single-instance mutex, so they run beside the installed app. For visual checks, run the debug exe
