@@ -1,4 +1,4 @@
-use super::{drop, peek, tabs, to_client};
+use super::{drop, peek, recycle, tabs, to_client};
 use crate::shell;
 use windows::{
     Win32::{
@@ -70,9 +70,11 @@ impl IDropTarget_Impl for Target_Impl {
         if let (Some(helper), Some(d)) = (&self.helper, data.as_ref()) {
             let _ = unsafe { helper.Drop(d, &POINT { x: pt.x, y: pt.y }, *effect) };
         }
-        let list = data.as_ref().map(shell::files).unwrap_or_default();
         unsafe { *effect = DROPEFFECT_NONE };
-        drop::files(self.h(), list, to_client(self.h(), (pt.x, pt.y)));
+        let at = to_client(self.h(), (pt.x, pt.y));
+        if !recycle::dropped(self.h(), data.as_ref(), at) {
+            drop::files(self.h(), data.as_ref().map(shell::files).unwrap_or_default(), at);
+        }
         Ok(())
     }
 }

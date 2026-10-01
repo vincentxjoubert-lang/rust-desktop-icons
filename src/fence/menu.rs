@@ -1,4 +1,4 @@
-use super::{actions, arrange, cursor, edit, fence_of, items, native, peek, select, tabs, update};
+use super::{actions, arrange, cursor, edit, fence_of, items, native, peek, recycle, select, tabs, update};
 use crate::{
     app::with,
     domain::{Look, icons},
@@ -45,6 +45,7 @@ pub(super) fn context(h: HWND) {
         if f.tabs.len() > 1 {
             a.entry(m, 62, T::DeleteTab, false, g::CLOSE);
         }
+        a.entry(m, 63, T::RecycleHere, f.active().recycle, g::DELETE);
         a.entry(m, 13, T::OpenFolder, false, g::FOLDER);
         separator(m);
         a.entry(m, 14, T::DeleteFence, false, g::DELETE);
@@ -79,6 +80,7 @@ pub(super) fn context(h: HWND) {
         60 => tabs::new_tab(h),
         61 => tabs::new_portal(h),
         62 => tabs::remove(h),
+        63 => recycle::toggle(h),
         _ => {}
     }
 }

@@ -12,11 +12,17 @@ fn exe() -> Option<String> {
     env::current_exe().ok().map(|e| e.display().to_string())
 }
 
+pub(super) fn reg_write(key: &str, name: &str, kind: REG_VALUE_TYPE, data: &[u8]) -> bool {
+    let (k, n) = (wide(key), wide(name));
+    unsafe {
+        RegSetKeyValueW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), PCWSTR(n.as_ptr()), kind.0, Some(data.as_ptr().cast()), data.len() as u32)
+    }
+    .is_ok()
+}
+
 fn reg_set(key: &str, name: &str, value: &str) {
-    let (k, n, v) = (wide(key), wide(name), wide(value));
-    let _ = unsafe {
-        RegSetKeyValueW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), PCWSTR(n.as_ptr()), REG_SZ.0, Some(v.as_ptr().cast()), (v.len() * 2) as u32)
-    };
+    let bytes: Vec<u8> = wide(value).iter().flat_map(|c| c.to_le_bytes()).collect();
+    reg_write(key, name, REG_SZ, &bytes);
 }
 
 pub fn set_autostart(on: bool) {

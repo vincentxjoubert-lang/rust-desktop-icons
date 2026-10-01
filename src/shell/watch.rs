@@ -37,3 +37,17 @@ impl Drop for Watch {
         }
     }
 }
+
+fn notify(event: SHCNE_ID, p: &Path) {
+    let w = wide_path(p);
+    unsafe { SHChangeNotify(event, SHCNF_PATHW, Some(w.as_ptr() as _), None) };
+}
+
+pub fn notify_moved(src: &Path, dst: &Path) {
+    let (gone, made) = if dst.is_dir() { (SHCNE_RMDIR, SHCNE_MKDIR) } else { (SHCNE_DELETE, SHCNE_CREATE) };
+    notify(gone, src);
+    notify(made, dst);
+    for dir in [src.parent(), dst.parent()].into_iter().flatten() {
+        notify(SHCNE_UPDATEDIR, dir);
+    }
+}

@@ -1,6 +1,6 @@
-use super::{anim, icons, kind::Kind, order::Sort};
+use super::{icons, kind::Kind, order::Sort};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, path::PathBuf};
+use std::path::PathBuf;
 
 fn clean(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(64).collect()
@@ -38,7 +38,7 @@ impl Look {
         (pct.min(100) * 255 / 100) as u8
     }
 
-    fn sanitized(mut self) -> Self {
+    pub(super) fn sanitized(mut self) -> Self {
         self.alpha = self.alpha.max(64);
         self.color &= 0xFF_FFFF;
         self.icon = icons::nearest(self.icon);
@@ -56,6 +56,7 @@ pub struct Tab {
     pub kinds: Vec<Kind>,
     pub sort: Sort,
     pub order: Vec<String>,
+    pub recycle: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -111,7 +112,7 @@ impl Fence {
         &mut self.tabs[i]
     }
 
-    fn sanitized(mut self) -> Self {
+    pub(super) fn sanitized(mut self) -> Self {
         self.w = self.w.clamp(Self::MIN.0, 10_000);
         self.h = self.h.clamp(Self::MIN.1, 10_000);
         self.x = self.x.clamp(-20_000, 20_000);
@@ -130,110 +131,13 @@ impl Fence {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Config {
-    pub lang: Option<String>,
-    pub auto_update: bool,
-    pub autostart: bool,
-    pub auto_sort: bool,
-    pub roll_ms: u32,
-    pub look: Look,
-    pub fences: Vec<Fence>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            lang: None,
-            auto_update: true,
-            autostart: true,
-            auto_sort: true,
-            roll_ms: anim::DEFAULT_MS,
-            look: Look::default(),
-            fences: vec![],
-        }
-    }
-}
-
-impl Config {
-    pub fn next_id(&self) -> u64 {
-        self.fences.iter().flat_map(|f| f.tabs.iter().map(|t| t.id).chain([f.id])).max().map_or(1, |m| m + 1)
-    }
-
-    pub fn rule_target(&self, kind: Kind) -> Option<(u64, u64)> {
-        self.fences.iter().find_map(|f| f.tabs.iter().find(|t| t.portal.is_none() && t.kinds.contains(&kind)).map(|t| (f.id, t.id)))
-    }
-
-    pub fn sanitized(mut self) -> Self {
-        let mut seen = HashSet::new();
-        self.fences = self.fences.into_iter().filter(|f| f.id > 0 && seen.insert(f.id)).map(Fence::sanitized).collect();
-        let mut tabs = HashSet::new();
-        for f in &mut self.fences {
-            f.tabs.retain(|t| t.id > 0 && tabs.insert(t.id));
-            if f.tabs.is_empty() {
-                f.tabs.push(Tab { id: f.id, ..Tab::default() });
-            }
-            f.tab = f.tab.min(f.tabs.len() - 1);
-        }
-        self.look = self.look.sanitized();
-        self.roll_ms = *anim::SPEEDS.iter().min_by_key(|s| s.abs_diff(self.roll_ms)).unwrap_or(&anim::DEFAULT_MS);
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn config_roundtrip_and_sanitize() {
-        let look = Look { alpha: 0, color: 0xFF12_3456, ..Look::default() };
-        let c = Config {
-            fences: vec![
-                Fence { id: 3, w: 5, look, title: "a\nb".into(), ..Fence::default() },
-                Fence { id: 3, ..Fence::default() },
-                Fence { id: 0, ..Fence::default() },
-            ],
-            ..Config::default()
-        };
-        let c: Config = serde_json::from_str::<Config>(&serde_json::to_string(&c).unwrap()).unwrap().sanitized();
-        assert_eq!(c.fences.len(), 1);
-        let f = &c.fences[0];
-        assert_eq!((f.w, f.look.alpha, f.look.color, f.active().title.as_str()), (Fence::MIN.0, 64, 0x12_3456, "ab"));
-        assert_eq!((f.active().id, f.title.as_str()), (3, ""));
-        assert_eq!(c.next_id(), 4);
-        assert_eq!(Config::default().next_id(), 1);
-    }
-
-    #[test]
     fn opacity_steps() {
         assert_eq!((Look::alpha_for(30), Look::alpha_for(100), Look::alpha_for(500)), (76, 255, 255));
         assert_eq!(Look { alpha: Look::alpha_for(70), ..Look::default() }.percent(), 70);
-    }
-
-    #[test]
-    fn legacy_json_migrates() {
-        let c: Config = serde_json::from_str::<Config>(r#"{"fences":[{"id":1,"title":"Jeux","color":255,"icon":50}],"roll_ms":999}"#)
-            .unwrap()
-            .sanitized();
-        let f = &c.fences[0];
-        assert!(c.auto_update && c.autostart && c.auto_sort && f.look.auto_height);
-        assert_eq!((f.w, f.look.color, f.look.icon, f.tabs.len(), f.active().title.as_str()), (360, 255, 48, 1, "Jeux"));
-        assert_eq!(c.roll_ms, 500);
-    }
-
-    #[test]
-    fn rules_pick_first_matching_tab() {
-        let mut a = Fence::new(1, "A", (0, 0, 200, 200), Look::default());
-        a.tabs.push(Tab { id: 5, kinds: vec![Kind::Images], ..Tab::default() });
-        let mut b = Fence::new(2, "B", (0, 0, 200, 200), Look::default());
-        b.tabs[0].kinds = vec![Kind::Images, Kind::Apps];
-        b.tabs.push(Tab { id: 6, portal: Some("C:\\x".into()), kinds: vec![Kind::Music], ..Tab::default() });
-        let c = Config { fences: vec![a, b], ..Config::default() };
-        assert_eq!(c.rule_target(Kind::Images), Some((1, 5)));
-        assert_eq!(c.rule_target(Kind::Apps), Some((2, 2)));
-        assert_eq!(c.rule_target(Kind::Music), None);
-        assert_eq!(c.next_id(), 7);
     }
 }

@@ -95,6 +95,7 @@ pub fn move_into(src: &Path, dir: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(dir)?;
     let dst = unique(dir, name);
     fs::rename(src, &dst).or_else(|_| relocate(src, &dst))?;
+    crate::shell::notify_moved(src, &dst);
     Ok(dst)
 }
 

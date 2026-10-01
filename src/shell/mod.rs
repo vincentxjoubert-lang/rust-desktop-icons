@@ -4,7 +4,9 @@ mod dnd;
 mod link;
 pub mod menu;
 mod ops;
+pub mod recycle;
 mod reg;
+mod source;
 mod watch;
 
 use crate::win::wide_path;
@@ -14,7 +16,7 @@ pub use link::{link_into, link_target};
 pub use ops::{delete, transfer};
 pub use reg::{NEW_ARG, UNINSTALL_ARG, set_autostart, set_desktop_verb};
 use std::path::{Path, PathBuf};
-pub use watch::Watch;
+pub use watch::{Watch, notify_moved};
 use windows::{
     Win32::{
         Globalization::GetUserDefaultLocaleName,
@@ -54,7 +56,8 @@ pub fn desktops() -> Vec<PathBuf> {
 }
 
 pub fn same_path(a: &Path, b: &Path) -> bool {
-    a.as_os_str().eq_ignore_ascii_case(b.as_os_str()) || a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+    let text = |p: &Path| p.to_string_lossy().trim_end_matches('\\').to_lowercase();
+    text(a) == text(b) || matches!((std::fs::canonicalize(a), std::fs::canonicalize(b)), (Ok(x), Ok(y)) if text(&x) == text(&y))
 }
 
 fn list(px: i32) -> i32 {
@@ -85,6 +88,6 @@ pub fn draw_icon(dc: HDC, index: i32, (x, y): (i32, i32), px: i32) {
 }
 
 pub fn open(p: &Path) {
-    let w = wide_path(p);
+    let w = if recycle::is(p) { wide_path(Path::new("shell:RecycleBinFolder")) } else { wide_path(p) };
     unsafe { ShellExecuteW(None, w!("open"), PCWSTR(w.as_ptr()), None, None, SW_SHOWNORMAL) };
 }

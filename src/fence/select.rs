@@ -1,4 +1,4 @@
-use super::{TITLE, ghost, items, metrics, render};
+use super::{TITLE, ghost, items, metrics, recycle, render};
 use crate::{app::with, domain::grid, rules, shell, win::*};
 use std::{collections::HashSet, path::PathBuf};
 use windows::Win32::{
@@ -38,11 +38,14 @@ pub(super) fn focus(h: HWND, p: &PathBuf) -> Vec<PathBuf> {
 }
 
 fn drag(h: HWND, paths: &[PathBuf], at: (i32, i32)) {
+    if paths.iter().any(|p| shell::recycle::is(p)) {
+        return recycle::drag(h, at, content(h, at));
+    }
     if let Some(desk) = shell::desktop() {
         paths.iter().filter_map(|p| p.file_name()).for_each(|n| rules::ignore(desk.join(n)));
     }
     let image = items::index_at(h, at).and_then(|i| ghost::image(h, i, content(h, at)));
-    shell::drag_out(h, paths, image);
+    shell::drag_out(h, paths, image, false);
 }
 
 pub(super) fn down(h: HWND, p: (i32, i32), ctrl: bool) {

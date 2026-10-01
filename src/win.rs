@@ -84,6 +84,13 @@ pub fn now_ms() -> f64 {
     qpc_ms(t)
 }
 
+pub fn desktop_at((x, y): (i32, i32)) -> bool {
+    let root = unsafe { GetAncestor(WindowFromPoint(POINT { x, y }), GA_ROOT) };
+    let mut buf = [0u16; 32];
+    let n = unsafe { GetClassNameW(root, &mut buf) } as usize;
+    matches!(String::from_utf16_lossy(&buf[..n]).as_str(), "Progman" | "WorkerW")
+}
+
 pub fn sys_scale(v: i32) -> i32 {
     v * unsafe { GetDpiForSystem() }.max(96) as i32 / 96
 }

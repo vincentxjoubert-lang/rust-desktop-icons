@@ -12,18 +12,23 @@ use windows::Win32::{Foundation::*, UI::Input::KeyboardAndMouse::DragDetect};
 pub fn bind(h: HWND) {
     let Some(dirs) = with(|a| a.fence_of(h).map(|f| f.tabs.iter().map(store::tab_dir).collect::<Vec<_>>())).flatten() else { return };
     with(|a| a.view(h).map(|v| v.watches.clear()));
-    let watches = dirs
+    let mut recycle_watch = None;
+    let mut watches: Vec<shell::Watch> = dirs
         .iter()
         .enumerate()
         .take(TABS)
         .filter_map(|(i, d)| {
             let w = shell::Watch::new(h, d, WM_CHANGED + i as u32);
+            if with(|a| a.fence_of(h).and_then(|f| f.tabs.get(i).map(|t| t.recycle))).flatten() == Some(true) {
+                recycle_watch = shell::Watch::new(h, &shell::recycle::path(), WM_CHANGED + i as u32);
+            }
             if w.is_none() {
                 report::log(&format!("cannot watch {}", d.display()));
             }
             w
         })
         .collect();
+    watches.extend(recycle_watch);
     with(|a| a.view(h).map(|v| (v.watches, v.scroll) = (watches, 0)));
     reload(h);
 }
@@ -115,5 +120,8 @@ pub(super) fn remove(h: HWND) {
         f.tabs.retain(|t| t.id != tab.id);
         f.tab = f.tab.min(f.tabs.len() - 1);
     });
+    if tab.recycle {
+        shell::recycle::show_on_desktop(true);
+    }
     bind(h);
 }

@@ -60,6 +60,7 @@ pub static S: [[&str; N]; 25] = [
         "The update could not be installed (code {}).",
         "Lock position",
         "Games",
+        "Recycle Bin in this tab",
     ],
     [
         "新建分区",
@@ -120,6 +121,7 @@ pub static S: [[&str; N]; 25] = [
         "无法安装更新（代码 {}）。",
         "锁定位置",
         "游戏",
+        "在此标签页显示回收站",
     ],
     [
         "नया क्षेत्र",
@@ -180,6 +182,7 @@ pub static S: [[&str; N]; 25] = [
         "अपडेट इंस्टॉल नहीं हो सका (कोड {})।",
         "स्थिति लॉक करें",
         "गेम",
+        "इस टैब में रीसायकल बिन",
     ],
     [
         "Nueva zona",
@@ -240,6 +243,7 @@ pub static S: [[&str; N]; 25] = [
         "No se pudo instalar la actualización (código {}).",
         "Bloquear posición",
         "Juegos",
+        "Papelera en esta pestaña",
     ],
     [
         "Nouvelle zone",
@@ -300,6 +304,7 @@ pub static S: [[&str; N]; 25] = [
         "La mise à jour n'a pas pu être installée (code {}).",
         "Verrouiller la position",
         "Jeux",
+        "Corbeille dans cet onglet",
     ],
     [
         "منطقة جديدة",
@@ -360,6 +365,7 @@ pub static S: [[&str; N]; 25] = [
         "تعذّر تثبيت التحديث (الرمز {}).",
         "قفل الموضع",
         "الألعاب",
+        "سلة المحذوفات في علامة التبويب هذه",
     ],
     [
         "নতুন অঞ্চল",
@@ -420,6 +426,7 @@ pub static S: [[&str; N]; 25] = [
         "আপডেট ইনস্টল করা যায়নি (কোড {})।",
         "অবস্থান লক করুন",
         "গেম",
+        "এই ট্যাবে রিসাইকেল বিন",
     ],
     [
         "Nova área",
@@ -480,6 +487,7 @@ pub static S: [[&str; N]; 25] = [
         "A atualização não pôde ser instalada (código {}).",
         "Bloquear posição",
         "Jogos",
+        "Lixeira nesta aba",
     ],
     [
         "Новая область",
@@ -540,6 +548,7 @@ pub static S: [[&str; N]; 25] = [
         "Не удалось установить обновление (код {}).",
         "Закрепить положение",
         "Игры",
+        "Корзина в этой вкладке",
     ],
     [
         "نیا خطہ",
@@ -600,6 +609,7 @@ pub static S: [[&str; N]; 25] = [
         "اپ ڈیٹ انسٹال نہیں ہو سکی (کوڈ {})۔",
         "مقام مقفل کریں",
         "گیمز",
+        "اس ٹیب میں ری سائیکل بن",
     ],
     [
         "Area baru",
@@ -660,6 +670,7 @@ pub static S: [[&str; N]; 25] = [
         "Pembaruan tidak dapat dipasang (kode {}).",
         "Kunci posisi",
         "Game",
+        "Recycle Bin di tab ini",
     ],
     [
         "Neuer Bereich",
@@ -720,6 +731,7 @@ pub static S: [[&str; N]; 25] = [
         "Das Update konnte nicht installiert werden (Code {}).",
         "Position sperren",
         "Spiele",
+        "Papierkorb in diesem Tab",
     ],
     [
         "新しいフェンス",
@@ -780,6 +792,7 @@ pub static S: [[&str; N]; 25] = [
         "更新をインストールできませんでした (コード {})。",
         "位置をロック",
         "ゲーム",
+        "このタブにごみ箱を表示",
     ],
     [
         "Eneo jipya",
@@ -840,6 +853,7 @@ pub static S: [[&str; N]; 25] = [
         "Sasisho halikuweza kusakinishwa (msimbo {}).",
         "Funga mahali",
         "Michezo",
+        "Pipa la taka katika kichupo hiki",
     ],
     [
         "नवीन क्षेत्र",
@@ -900,6 +914,7 @@ pub static S: [[&str; N]; 25] = [
         "अपडेट इंस्टॉल करता आले नाही (कोड {}).",
         "स्थान लॉक करा",
         "खेळ",
+        "या टॅबमध्ये रीसायकल बिन",
     ],
     [
         "కొత్త ప్రాంతం",
@@ -960,6 +975,7 @@ pub static S: [[&str; N]; 25] = [
         "నవీకరణను ఇన్‌స్టాల్ చేయలేకపోయింది (కోడ్ {}).",
         "స్థానాన్ని లాక్ చేయి",
         "ఆటలు",
+        "ఈ ట్యాబ్‌లో రీసైకిల్ బిన్",
     ],
     [
         "Yeni alan",
@@ -1020,6 +1036,7 @@ pub static S: [[&str; N]; 25] = [
         "Güncelleme yüklenemedi (kod {}).",
         "Konumu kilitle",
         "Oyunlar",
+        "Geri Dönüşüm Kutusu bu sekmede",
     ],
     [
         "புதிய பகுதி",
@@ -1080,6 +1097,7 @@ pub static S: [[&str; N]; 25] = [
         "புதுப்பிப்பை நிறுவ முடியவில்லை (குறியீடு {}).",
         "நிலையைப் பூட்டு",
         "விளையாட்டுகள்",
+        "இந்தத் தாவலில் மறுசுழற்சித் தொட்டி",
     ],
     [
         "Vùng mới",
@@ -1140,6 +1158,7 @@ pub static S: [[&str; N]; 25] = [
         "Không thể cài đặt bản cập nhật (mã {}).",
         "Khóa vị trí",
         "Trò chơi",
+        "Thùng rác trong thẻ này",
     ],
     [
         "새 영역",
@@ -1200,6 +1219,7 @@ pub static S: [[&str; N]; 25] = [
         "업데이트를 설치할 수 없습니다 (코드 {}).",
         "위치 잠금",
         "게임",
+        "이 탭에 휴지통 표시",
     ],
     [
         "Nuova area",
@@ -1260,6 +1280,7 @@ pub static S: [[&str; N]; 25] = [
         "Impossibile installare l'aggiornamento (codice {}).",
         "Blocca posizione",
         "Giochi",
+        "Cestino in questa scheda",
     ],
     [
         "พื้นที่ใหม่",
@@ -1320,6 +1341,7 @@ pub static S: [[&str; N]; 25] = [
         "ไม่สามารถติดตั้งการอัปเดต (รหัส {})",
         "ล็อกตำแหน่ง",
         "เกม",
+        "ถังรีไซเคิลในแท็บนี้",
     ],
     [
         "Nowy obszar",
@@ -1380,6 +1402,7 @@ pub static S: [[&str; N]; 25] = [
         "Nie można zainstalować aktualizacji (kod {}).",
         "Zablokuj położenie",
         "Gry",
+        "Kosz w tej karcie",
     ],
     [
         "Нова область",
@@ -1440,6 +1463,7 @@ pub static S: [[&str; N]; 25] = [
         "Не вдалося встановити оновлення (код {}).",
         "Закріпити положення",
         "Ігри",
+        "Кошик у цій вкладці",
     ],
     [
         "ناحیه جدید",
@@ -1500,5 +1524,6 @@ pub static S: [[&str; N]; 25] = [
         "نصب به‌روزرسانی ممکن نشد (کد {}).",
         "قفل کردن موقعیت",
         "بازی‌ها",
+        "سطل بازیافت در این زبانه",
     ],
 ];

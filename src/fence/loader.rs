@@ -30,18 +30,24 @@ fn meta(p: &Path) -> Meta {
 }
 
 fn load(tab: &Tab) -> Vec<Item> {
-    let paths: Vec<PathBuf> = fs::read_dir(store::tab_dir(tab))
+    let paths: Vec<PathBuf> = tab
+        .recycle
+        .then(shell::recycle::path)
         .into_iter()
-        .flatten()
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| !p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("desktop.ini")))
+        .chain(
+            fs::read_dir(store::tab_dir(tab))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| !p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("desktop.ini"))),
+        )
         .collect();
     let metas: Vec<Meta> = paths.iter().map(|p| meta(p)).collect();
     order::arrange(&metas, tab.sort, &tab.order)
         .into_iter()
         .map(|i| {
-            let (icon, name) = shell::info(&paths[i]);
+            let (icon, name) = if shell::recycle::is(&paths[i]) { shell::recycle::info() } else { shell::info(&paths[i]) };
             Item { path: paths[i].clone(), name, icon }
         })
         .collect()

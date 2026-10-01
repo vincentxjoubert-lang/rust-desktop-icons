@@ -29,9 +29,7 @@ pub(super) fn submenus(a: &mut App, m: HMENU, t: &Tab) {
 }
 
 fn names(h: HWND) -> Vec<String> {
-    with(|a| a.view(h).map(|v| v.items.iter().filter_map(|i| i.path.file_name()).map(|n| n.to_string_lossy().into_owned()).collect()))
-        .flatten()
-        .unwrap_or_default()
+    with(|a| a.view(h).map(|v| v.items.iter().map(|i| store::name(&i.path)).collect())).flatten().unwrap_or_default()
 }
 
 fn set_order(h: HWND, sort: Sort, order: Vec<String>) {

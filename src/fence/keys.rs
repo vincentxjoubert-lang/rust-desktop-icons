@@ -15,7 +15,7 @@ fn paste(h: HWND) {
 
 pub(super) fn handle(h: HWND, vk: u16) -> bool {
     let (ctrl, shift, k) = (key_down(VK_CONTROL), key_down(VK_SHIFT), VIRTUAL_KEY(vk));
-    let sel = select::selection(h);
+    let sel: Vec<_> = select::selection(h).into_iter().filter(|p| !shell::recycle::is(p)).collect();
     match k {
         VK_DELETE if !sel.is_empty() => {
             if shell::delete(h, &sel, shift) {

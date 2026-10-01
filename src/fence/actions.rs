@@ -42,5 +42,8 @@ pub(super) fn delete(h: HWND) {
         a.cfg.fences.retain(|x| x.id != f.id);
         a.save();
     });
+    if f.tabs.iter().any(|t| t.recycle) {
+        shell::recycle::show_on_desktop(true);
+    }
     unsafe { DestroyWindow(h).ok() };
 }

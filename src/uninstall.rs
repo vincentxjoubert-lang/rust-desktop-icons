@@ -7,6 +7,9 @@ use windows::Win32::UI::WindowsAndMessaging::{MB_ICONWARNING, MB_OK};
 
 pub fn run() {
     let (cfg, _) = store::load();
+    if cfg.has_recycle() {
+        shell::recycle::show_on_desktop(true);
+    }
     let Some(desk) = shell::desktop() else { return };
     let errors: Vec<String> = cfg
         .fences

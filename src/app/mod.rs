@@ -9,7 +9,7 @@ use crate::{
     report, rules, settings, shell, store, tray,
     win::*,
 };
-pub use fences::{new_fence, rebuild, register_verb};
+pub use fences::{hide_recycle_if_placed, new_fence, rebuild, register_verb};
 use std::{cell::RefCell, collections::HashSet, path::PathBuf};
 pub use view::{Item, View};
 use windows::{
@@ -31,6 +31,7 @@ pub struct App {
     pub seen: HashSet<PathBuf>,
     pub desk: Option<shell::Watch>,
     pub panel: Option<settings::Panel>,
+    pub recycle_drag: bool,
     save_error: Option<String>,
     save_reported: bool,
 }
@@ -131,6 +132,7 @@ pub fn run() {
                 seen: HashSet::new(),
                 desk: None,
                 panel: None,
+                recycle_drag: false,
                 save_error: None,
                 save_reported: false,
             })
@@ -140,6 +142,7 @@ pub fn run() {
             report::alert(T::ErrConfig, &bad.display().to_string());
         }
         rebuild();
+        hide_recycle_if_placed();
         rules::watch(tray);
         register_verb();
         if new {

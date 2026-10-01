@@ -70,6 +70,9 @@ pub(super) fn title(h: HWND) {
 }
 
 pub(super) fn item(h: HWND, path: &PathBuf) {
+    if crate::shell::recycle::is(path) {
+        return;
+    }
     let s = |v| scale(h, v);
     let (cell, icon) = metrics(h);
     let w = client_rect(h).right;

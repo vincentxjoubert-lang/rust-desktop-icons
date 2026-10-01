@@ -8,6 +8,12 @@ pub fn register_verb() {
     }
 }
 
+pub fn hide_recycle_if_placed() {
+    if with(|a| a.cfg.has_recycle()) == Some(true) {
+        shell::recycle::show_on_desktop(false);
+    }
+}
+
 pub fn new_fence() {
     let (px, py) = cursor_pos();
     let s = sys_scale;

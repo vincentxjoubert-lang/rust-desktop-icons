@@ -16,8 +16,12 @@ pub(super) fn refresh(h: HWND) {
     }
 }
 
+pub fn windows() -> Vec<HWND> {
+    with(|a| a.views.iter().map(|v| v.hwnd).collect()).unwrap_or_default()
+}
+
 pub fn reload_all() {
-    with(|a| a.views.iter().map(|v| v.hwnd).collect::<Vec<_>>()).into_iter().flatten().for_each(reload);
+    windows().into_iter().for_each(reload);
 }
 
 pub(super) fn set_icon(h: HWND, px: i32) {
