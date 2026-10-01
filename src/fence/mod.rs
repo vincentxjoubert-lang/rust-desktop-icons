@@ -130,7 +130,11 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             let i = unsafe { &mut *(lp.0 as *mut MINMAXINFO) };
             i.ptMinTrackSize = POINT { x: scale(h, Fence::MIN.0), y: scale(h, TITLE) };
         }
-        WM_EXITSIZEMOVE => layout::persist(h),
+        WM_ENTERSIZEMOVE => snap::begin(h),
+        WM_EXITSIZEMOVE => {
+            snap::end(h);
+            layout::persist(h);
+        }
         WM_DPICHANGED => {
             let r = unsafe { &*(lp.0 as *const RECT) };
             unsafe { SetWindowPos(h, None, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE).ok() };
@@ -153,11 +157,11 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             peek::enter(h);
             tabs::hover(h, xy(lp));
         }
-        WM_NCRBUTTONUP if wp.0 as u32 == HTCAPTION => menu::context(h),
+        WM_NCRBUTTONUP if wp.0 as u32 == HTCAPTION => peek::keep_open(h, || menu::context(h)),
         WM_LBUTTONDBLCLK => items::item_at(h, xy(lp)).iter().for_each(|p| shell::open(p)),
         WM_LBUTTONDOWN => select::down(h, xy(lp), wp.0 & MK_CONTROL != 0),
         WM_LBUTTONUP | WM_CAPTURECHANGED => select::up(h),
-        WM_CONTEXTMENU => menu::context(h),
+        WM_CONTEXTMENU => peek::keep_open(h, || menu::context(h)),
         WM_MOUSEMOVE => {
             track_leave(h);
             peek::enter(h);

@@ -1,4 +1,4 @@
-use crate::{domain::snap, win::*};
+use crate::{app::with, domain::snap, win::*};
 use windows::Win32::{
     Foundation::*,
     UI::WindowsAndMessaging::{
@@ -15,8 +15,19 @@ fn adjust(h: HWND, lp: LPARAM, f: impl FnOnce(snap::Rect, snap::Rect, i32) -> sn
     *r = RECT { left, top, right, bottom };
 }
 
+pub(super) fn begin(h: HWND) {
+    let r = window_rect(h);
+    let start = ([r.left, r.top, r.right, r.bottom], cursor_pos());
+    with(|a| a.view(h).map(|v| v.drag = Some(start)));
+}
+
+pub(super) fn end(h: HWND) {
+    with(|a| a.view(h).map(|v| v.drag = None));
+}
+
 pub(super) fn moving(h: HWND, lp: LPARAM) {
-    adjust(h, lp, snap::moving);
+    let drag = with(|a| a.view(h).and_then(|v| v.drag)).flatten();
+    adjust(h, lp, |r, a, d| snap::moving(drag.map_or(r, |(start, c0)| snap::follow(start, c0, cursor_pos())), a, d));
 }
 
 pub(super) fn sizing(h: HWND, wp: WPARAM, lp: LPARAM) {

@@ -59,13 +59,14 @@ pub enum T {
     ErrDelete,
     ErrInstall,
     Lock,
+    KGames,
 }
 
 mod table;
 
 use table::S;
 
-const N: usize = 57;
+const N: usize = 58;
 
 pub const LANGS: [(&str, &str); 25] = [
     ("en", "English"),
@@ -97,6 +98,7 @@ pub const LANGS: [(&str, &str); 25] = [
 
 pub fn kind(k: Kind) -> T {
     match k {
+        Kind::Games => T::KGames,
         Kind::Apps => T::KApps,
         Kind::Images => T::KImages,
         Kind::Documents => T::KDocuments,
@@ -139,7 +141,7 @@ mod tests {
     #[test]
     fn complete_tables() {
         assert!(S.iter().flatten().all(|s| !s.trim().is_empty()));
-        assert_eq!(T::Lock as usize, N - 1);
+        assert_eq!(T::KGames as usize, N - 1);
     }
 
     #[test]

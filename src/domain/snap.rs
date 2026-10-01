@@ -10,6 +10,11 @@ pub fn moving(r: Rect, area: Rect, d: i32) -> Rect {
     [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy]
 }
 
+pub fn follow(start: Rect, (x0, y0): (i32, i32), (x, y): (i32, i32)) -> Rect {
+    let (dx, dy) = (x - x0, y - y0);
+    [start[0] + dx, start[1] + dy, start[2] + dx, start[3] + dy]
+}
+
 pub fn sizing(r: Rect, area: Rect, d: i32, sides: [bool; 4]) -> Rect {
     std::array::from_fn(|i| if sides[i] && (area[i] - r[i]).abs() < d { area[i] } else { r[i] })
 }
@@ -17,6 +22,17 @@ pub fn sizing(r: Rect, area: Rect, d: i32, sides: [bool; 4]) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn slow_drag_leaves_the_edge() {
+        let (area, start) = ([0, 0, 1920, 1040], [0, 0, 300, 150]);
+        let mut r = start;
+        for step in 1..=20 {
+            r = moving(follow(start, (150, 17), (150 + step * 12, 17 + step * 10)), area, 16);
+        }
+        assert_eq!(r, [240, 200, 540, 350]);
+        assert_eq!(moving(follow(start, (150, 17), (160, 27)), area, 16), start);
+    }
 
     #[test]
     fn snapping() {

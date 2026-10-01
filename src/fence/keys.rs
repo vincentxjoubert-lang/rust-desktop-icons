@@ -1,4 +1,4 @@
-use super::{edit, fence_of, native, reload, reload_all, select};
+use super::{edit, fence_of, native, peek, reload, reload_all, select};
 use crate::{
     shell::{self, clip},
     store,
@@ -35,7 +35,7 @@ pub(super) fn handle(h: HWND, vk: u16) -> bool {
         }
         VK_V if ctrl => paste(h),
         VK_APPS | VK_F10 if (k == VK_APPS || shift) && !sel.is_empty() => {
-            native::show(h, &sel, cursor_pos());
+            peek::keep_open(h, || native::show(h, &sel, cursor_pos()));
         }
         _ => return false,
     }

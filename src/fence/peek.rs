@@ -16,10 +16,16 @@ pub(super) fn enter(h: HWND) {
     }
 }
 
+pub(super) fn keep_open(h: HWND, f: impl FnOnce()) {
+    with(|a| a.view(h).map(|v| v.busy = true));
+    f();
+    with(|a| a.view(h).map(|v| v.busy = false));
+}
+
 pub(super) fn check(h: HWND) {
     let (x, y) = cursor_pos();
     let inside = unsafe { PtInRect(&window_rect(h), POINT { x, y }) }.as_bool();
-    if inside || with(|a| a.view(h).map(|v| v.edit.is_some())).flatten() != Some(false) {
+    if inside || with(|a| a.view(h).map(|v| v.edit.is_some() || v.busy)).flatten() != Some(false) {
         return;
     }
     let _ = unsafe { KillTimer(Some(h), PEEK) };

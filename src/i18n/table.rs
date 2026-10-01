@@ -59,6 +59,7 @@ pub static S: [[&str; N]; 25] = [
         "Some items could not be moved back to the desktop, so the fence was kept:\n{}",
         "The update could not be installed (code {}).",
         "Lock position",
+        "Games",
     ],
     [
         "新建分区",
@@ -118,6 +119,7 @@ pub static S: [[&str; N]; 25] = [
         "部分项目无法移回桌面，因此保留了该区域：\n{}",
         "无法安装更新（代码 {}）。",
         "锁定位置",
+        "游戏",
     ],
     [
         "नया क्षेत्र",
@@ -177,6 +179,7 @@ pub static S: [[&str; N]; 25] = [
         "कुछ आइटम डेस्कटॉप पर वापस नहीं जा सके, इसलिए क्षेत्र रखा गया:\n{}",
         "अपडेट इंस्टॉल नहीं हो सका (कोड {})।",
         "स्थिति लॉक करें",
+        "गेम",
     ],
     [
         "Nueva zona",
@@ -236,6 +239,7 @@ pub static S: [[&str; N]; 25] = [
         "Algunos elementos no se pudieron devolver al escritorio, así que se conservó la zona:\n{}",
         "No se pudo instalar la actualización (código {}).",
         "Bloquear posición",
+        "Juegos",
     ],
     [
         "Nouvelle zone",
@@ -295,6 +299,7 @@ pub static S: [[&str; N]; 25] = [
         "Certains éléments n'ont pas pu être replacés sur le bureau, la zone a donc été conservée :\n{}",
         "La mise à jour n'a pas pu être installée (code {}).",
         "Verrouiller la position",
+        "Jeux",
     ],
     [
         "منطقة جديدة",
@@ -354,6 +359,7 @@ pub static S: [[&str; N]; 25] = [
         "تعذّر إعادة بعض العناصر إلى سطح المكتب، لذلك تم الإبقاء على المنطقة:\n{}",
         "تعذّر تثبيت التحديث (الرمز {}).",
         "قفل الموضع",
+        "الألعاب",
     ],
     [
         "নতুন অঞ্চল",
@@ -413,6 +419,7 @@ pub static S: [[&str; N]; 25] = [
         "কিছু আইটেম ডেস্কটপে ফেরানো যায়নি, তাই এলাকাটি রাখা হয়েছে:\n{}",
         "আপডেট ইনস্টল করা যায়নি (কোড {})।",
         "অবস্থান লক করুন",
+        "গেম",
     ],
     [
         "Nova área",
@@ -472,6 +479,7 @@ pub static S: [[&str; N]; 25] = [
         "Alguns itens não puderam voltar para a área de trabalho, então a área foi mantida:\n{}",
         "A atualização não pôde ser instalada (código {}).",
         "Bloquear posição",
+        "Jogos",
     ],
     [
         "Новая область",
@@ -531,6 +539,7 @@ pub static S: [[&str; N]; 25] = [
         "Некоторые элементы не удалось вернуть на рабочий стол, поэтому зона сохранена:\n{}",
         "Не удалось установить обновление (код {}).",
         "Закрепить положение",
+        "Игры",
     ],
     [
         "نیا خطہ",
@@ -590,6 +599,7 @@ pub static S: [[&str; N]; 25] = [
         "کچھ آئٹمز ڈیسک ٹاپ پر واپس نہیں جا سکے، اس لیے حصہ رکھا گیا:\n{}",
         "اپ ڈیٹ انسٹال نہیں ہو سکی (کوڈ {})۔",
         "مقام مقفل کریں",
+        "گیمز",
     ],
     [
         "Area baru",
@@ -649,6 +659,7 @@ pub static S: [[&str; N]; 25] = [
         "Beberapa item tidak dapat dikembalikan ke desktop, jadi area tetap dipertahankan:\n{}",
         "Pembaruan tidak dapat dipasang (kode {}).",
         "Kunci posisi",
+        "Game",
     ],
     [
         "Neuer Bereich",
@@ -708,6 +719,7 @@ pub static S: [[&str; N]; 25] = [
         "Einige Elemente konnten nicht auf den Desktop zurückverschoben werden, daher wurde der Bereich behalten:\n{}",
         "Das Update konnte nicht installiert werden (Code {}).",
         "Position sperren",
+        "Spiele",
     ],
     [
         "新しいフェンス",
@@ -767,6 +779,7 @@ pub static S: [[&str; N]; 25] = [
         "一部の項目をデスクトップに戻せなかったため、エリアを残しました:\n{}",
         "更新をインストールできませんでした (コード {})。",
         "位置をロック",
+        "ゲーム",
     ],
     [
         "Eneo jipya",
@@ -826,6 +839,7 @@ pub static S: [[&str; N]; 25] = [
         "Baadhi ya vipengee havikuweza kurudishwa kwenye eneo-kazi, kwa hivyo eneo limehifadhiwa:\n{}",
         "Sasisho halikuweza kusakinishwa (msimbo {}).",
         "Funga mahali",
+        "Michezo",
     ],
     [
         "नवीन क्षेत्र",
@@ -885,6 +899,7 @@ pub static S: [[&str; N]; 25] = [
         "काही आयटम डेस्कटॉपवर परत हलवता आले नाहीत, म्हणून क्षेत्र ठेवले:\n{}",
         "अपडेट इंस्टॉल करता आले नाही (कोड {}).",
         "स्थान लॉक करा",
+        "खेळ",
     ],
     [
         "కొత్త ప్రాంతం",
@@ -944,6 +959,7 @@ pub static S: [[&str; N]; 25] = [
         "కొన్ని అంశాలను డెస్క్‌టాప్‌కు తిరిగి తరలించలేకపోయింది, కాబట్టి ప్రాంతం ఉంచబడింది:\n{}",
         "నవీకరణను ఇన్‌స్టాల్ చేయలేకపోయింది (కోడ్ {}).",
         "స్థానాన్ని లాక్ చేయి",
+        "ఆటలు",
     ],
     [
         "Yeni alan",
@@ -1003,6 +1019,7 @@ pub static S: [[&str; N]; 25] = [
         "Bazı öğeler masaüstüne geri taşınamadı, bu yüzden alan korundu:\n{}",
         "Güncelleme yüklenemedi (kod {}).",
         "Konumu kilitle",
+        "Oyunlar",
     ],
     [
         "புதிய பகுதி",
@@ -1062,6 +1079,7 @@ pub static S: [[&str; N]; 25] = [
         "சில உருப்படிகளை டெஸ்க்டாப்பிற்குத் திருப்ப முடியவில்லை, எனவே பகுதி வைக்கப்பட்டது:\n{}",
         "புதுப்பிப்பை நிறுவ முடியவில்லை (குறியீடு {}).",
         "நிலையைப் பூட்டு",
+        "விளையாட்டுகள்",
     ],
     [
         "Vùng mới",
@@ -1121,6 +1139,7 @@ pub static S: [[&str; N]; 25] = [
         "Không thể đưa một số mục về màn hình nền, nên vùng được giữ lại:\n{}",
         "Không thể cài đặt bản cập nhật (mã {}).",
         "Khóa vị trí",
+        "Trò chơi",
     ],
     [
         "새 영역",
@@ -1180,6 +1199,7 @@ pub static S: [[&str; N]; 25] = [
         "일부 항목을 바탕 화면으로 되돌릴 수 없어 영역을 유지했습니다:\n{}",
         "업데이트를 설치할 수 없습니다 (코드 {}).",
         "위치 잠금",
+        "게임",
     ],
     [
         "Nuova area",
@@ -1239,6 +1259,7 @@ pub static S: [[&str; N]; 25] = [
         "Alcuni elementi non sono potuti tornare sul desktop, quindi l'area è stata mantenuta:\n{}",
         "Impossibile installare l'aggiornamento (codice {}).",
         "Blocca posizione",
+        "Giochi",
     ],
     [
         "พื้นที่ใหม่",
@@ -1298,6 +1319,7 @@ pub static S: [[&str; N]; 25] = [
         "ไม่สามารถย้ายบางรายการกลับไปที่เดสก์ท็อป จึงเก็บพื้นที่ไว้:\n{}",
         "ไม่สามารถติดตั้งการอัปเดต (รหัส {})",
         "ล็อกตำแหน่ง",
+        "เกม",
     ],
     [
         "Nowy obszar",
@@ -1357,6 +1379,7 @@ pub static S: [[&str; N]; 25] = [
         "Niektórych elementów nie udało się przywrócić na pulpit, więc obszar zachowano:\n{}",
         "Nie można zainstalować aktualizacji (kod {}).",
         "Zablokuj położenie",
+        "Gry",
     ],
     [
         "Нова область",
@@ -1416,6 +1439,7 @@ pub static S: [[&str; N]; 25] = [
         "Деякі елементи не вдалося повернути на робочий стіл, тому зону збережено:\n{}",
         "Не вдалося встановити оновлення (код {}).",
         "Закріпити положення",
+        "Ігри",
     ],
     [
         "ناحیه جدید",
@@ -1475,5 +1499,6 @@ pub static S: [[&str; N]; 25] = [
         "برخی موارد به دسکتاپ بازگردانده نشدند، بنابراین ناحیه حفظ شد:\n{}",
         "نصب به‌روزرسانی ممکن نشد (کد {}).",
         "قفل کردن موقعیت",
+        "بازی‌ها",
     ],
 ];

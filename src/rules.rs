@@ -1,6 +1,6 @@
 use crate::{
     app::with,
-    domain::{Kind, kind::transient},
+    domain::kind::{candidates, transient},
     fence,
     i18n::T,
     report, shell, store,
@@ -65,9 +65,11 @@ pub fn run(tray: Option<HWND>, all: bool) {
                 pending.insert(p);
                 continue;
             }
-            let kind = Kind::of(p.extension().and_then(|e| e.to_str()), p.is_dir());
-            let tab = kind
-                .and_then(|k| cfg.rule_target(k))
+            let target = shell::link_target(&p);
+            let kinds = candidates(p.extension().and_then(|e| e.to_str()), p.is_dir(), target.as_deref());
+            let tab = kinds
+                .into_iter()
+                .find_map(|k| cfg.rule_target(k))
                 .and_then(|(f, t)| cfg.fences.iter().find(|x| x.id == f)?.tabs.iter().find(|x| x.id == t));
             if let Some(tab) = tab {
                 match store::move_into(&p, &store::tab_dir(tab)) {
