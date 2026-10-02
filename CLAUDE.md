@@ -1,4 +1,4 @@
-﻿# Rust Desktop Icons
+# Rust Desktop Icons
 
 Open-source Fences 6 alternative for Windows 10/11: customizable desktop rectangles ("fences") that hold icons.
 
@@ -17,7 +17,7 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Build: `cargo build --release`
 - MSI (local): needs WiX 5.0.2 (`dotnet tool install wix --version 5.0.2`) + `wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2`:
   `wix build installer/main.wxs -d Version=0.1.0 -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o target/rdi.msi`
-- Release: bump `version` in Cargo.toml, write the changelog in `.github/release-notes.md` (used as the release body), commit, push tag `vX.Y.Z` → `.github/workflows/release.yml` builds and publishes MSI + `.sha256`.
+- Release: bump `version` in Cargo.toml, write the changelog in English in `.github/release-notes.md` (release body + embedded in the exe, shown once after an update by `whatsnew.rs`), commit, push tag `vX.Y.Z` → `.github/workflows/release.yml` builds and publishes MSI + `.sha256`.
 
 ## Layout
 - `src/domain/` pure logic, all unit-tested: `model.rs` (Fence/Tab/Look), `config.rs` (Config, recycle placement), `kind.rs` (file types + game

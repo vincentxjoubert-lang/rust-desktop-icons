@@ -16,6 +16,7 @@ pub struct Config {
     pub roll_ms: u32,
     pub look: Look,
     pub fences: Vec<Fence>,
+    pub version: Option<String>,
 }
 
 impl Default for Config {
@@ -28,6 +29,7 @@ impl Default for Config {
             roll_ms: anim::DEFAULT_MS,
             look: Look::default(),
             fences: vec![],
+            version: None,
         }
     }
 }
@@ -51,6 +53,16 @@ impl Config {
 
     pub fn tab_mut(&mut self, fence: u64, tab: u64) -> Option<&mut Tab> {
         self.fences.iter_mut().find(|f| f.id == fence)?.tabs.iter_mut().find(|t| t.id == tab)
+    }
+
+    pub fn toggle_rule(&mut self, fence: u64, tab: u64, kind: Kind) {
+        let Some(t) = self.tab_mut(fence, tab) else { return };
+        if t.kinds.contains(&kind) {
+            t.kinds.retain(|x| *x != kind);
+        } else {
+            t.kinds.push(kind);
+            self.auto_sort = true;
+        }
     }
 
     pub fn rule_target(&self, kind: Kind) -> Option<(u64, u64)> {
@@ -133,10 +145,16 @@ mod tests {
         let mut b = Fence::new(2, "B", (0, 0, 200, 200), Look::default());
         b.tabs[0].kinds = vec![Kind::Images, Kind::Apps];
         b.tabs.push(Tab { id: 6, portal: Some("C:\\x".into()), kinds: vec![Kind::Music], ..Tab::default() });
-        let c = Config { fences: vec![a, b], ..Config::default() };
+        let mut c = Config { fences: vec![a, b], ..Config::default() };
         assert_eq!(c.rule_target(Kind::Images), Some((1, 5)));
         assert_eq!(c.rule_target(Kind::Apps), Some((2, 2)));
         assert_eq!(c.rule_target(Kind::Music), None);
+        c.auto_sort = false;
+        c.toggle_rule(1, 5, Kind::Music);
+        assert!(c.auto_sort && c.tab(1, 5).unwrap().kinds.contains(&Kind::Music));
+        c.auto_sort = false;
+        c.toggle_rule(1, 5, Kind::Music);
+        assert!(!c.auto_sort && !c.tab(1, 5).unwrap().kinds.contains(&Kind::Music));
         assert_eq!(c.next_id(), 7);
     }
 }

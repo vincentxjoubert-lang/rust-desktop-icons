@@ -35,15 +35,7 @@ fn rule(h: HWND, fence: u64, tab: u64) {
         return;
     };
     let Some(k) = choose(h, options).map(|i| Kind::ALL[i]) else { return };
-    change(|c| {
-        if let Some(t) = c.tab_mut(fence, tab) {
-            if t.kinds.contains(&k) {
-                t.kinds.retain(|x| *x != k);
-            } else {
-                t.kinds.push(k);
-            }
-        }
-    });
+    change(|c| c.toggle_rule(fence, tab, k));
 }
 
 fn perform(h: HWND, act: rows::Act) {

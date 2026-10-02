@@ -116,6 +116,7 @@ pub fn run() {
         register(fence::CLASS, Some(fence::proc));
         settings::register_class();
         let Some(tray) = tray::create() else { return };
+        let existed = store::root().join("config.json").exists();
         let (cfg, damaged) = store::load();
         if !cfg.autostart {
             shell::set_autostart(false);
@@ -148,6 +149,7 @@ pub fn run() {
         if new {
             new_fence();
         }
+        crate::whatsnew::show(existed);
         tray::updates::spawn(tray);
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {

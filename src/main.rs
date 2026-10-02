@@ -15,6 +15,7 @@ mod store;
 mod tray;
 mod uninstall;
 mod update;
+mod whatsnew;
 mod win;
 
 fn main() {

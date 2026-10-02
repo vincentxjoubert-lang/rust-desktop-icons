@@ -1,6 +1,6 @@
-use super::{reload, update, view};
+use super::{read, reload, update, view};
 use crate::{
-    app::App,
+    app::{App, change},
     domain::{Kind, Sort, Tab, order},
     i18n::{self, T},
     layered::glyph as g,
@@ -45,14 +45,9 @@ pub(super) fn handle(h: HWND, id: usize) -> bool {
         k if (SORT..SORT + Sort::ALL.len()).contains(&k) => set_order(h, Sort::ALL[k - SORT], names(h)),
         k if (RULE..RULE + Kind::ALL.len()).contains(&k) => {
             let kind = Kind::ALL[k - RULE];
-            update(h, |f| {
-                let kinds = &mut f.active_mut().kinds;
-                if kinds.contains(&kind) {
-                    kinds.retain(|x| *x != kind);
-                } else {
-                    kinds.push(kind);
-                }
-            });
+            if let Some((fence, tab)) = read(h, |f| (f.id, f.active().id)) {
+                change(|c| c.toggle_rule(fence, tab, kind));
+            }
         }
         _ => return false,
     }
