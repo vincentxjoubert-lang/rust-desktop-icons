@@ -6,7 +6,6 @@ pub mod menu;
 mod ops;
 pub mod recycle;
 mod reg;
-mod source;
 mod watch;
 
 use crate::win::wide_path;
@@ -19,14 +18,15 @@ use std::path::{Path, PathBuf};
 pub use watch::{Watch, notify_moved};
 use windows::{
     Win32::{
+        Foundation::COLORREF,
         Globalization::GetUserDefaultLocaleName,
         Graphics::Gdi::HDC,
         Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES,
         System::Com::CoTaskMemFree,
         UI::{
-            Controls::{IImageList, ILD_TRANSPARENT},
+            Controls::{CLR_NONE, HIMAGELIST, IImageList, ILD_SCALE, ILD_TRANSPARENT, IMAGELISTDRAWPARAMS},
             Shell::*,
-            WindowsAndMessaging::{DI_NORMAL, DestroyIcon, DrawIconEx, SW_SHOWNORMAL},
+            WindowsAndMessaging::SW_SHOWNORMAL,
         },
     },
     core::*,
@@ -80,9 +80,21 @@ pub fn info(p: &Path) -> (i32, Vec<u16>) {
 
 pub fn draw_icon(dc: HDC, index: i32, (x, y): (i32, i32), px: i32) {
     unsafe {
-        if let Ok(icon) = SHGetImageList::<IImageList>(list(px)).and_then(|l| l.GetIcon(index, ILD_TRANSPARENT.0)) {
-            let _ = DrawIconEx(dc, x, y, icon, px, px, 0, None, DI_NORMAL);
-            let _ = DestroyIcon(icon);
+        if let Ok(l) = SHGetImageList::<IImageList>(list(px)) {
+            let p = IMAGELISTDRAWPARAMS {
+                cbSize: size_of::<IMAGELISTDRAWPARAMS>() as u32,
+                himl: HIMAGELIST(l.as_raw() as _),
+                i: index,
+                hdcDst: dc,
+                x,
+                y,
+                cx: px,
+                cy: px,
+                rgbBk: COLORREF(CLR_NONE as u32),
+                fStyle: (ILD_TRANSPARENT | ILD_SCALE).0,
+                ..Default::default()
+            };
+            let _ = l.Draw(&p);
         }
     }
 }

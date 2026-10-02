@@ -2,11 +2,11 @@ use super::data;
 use std::path::PathBuf;
 use windows::{
     Win32::{
-        Foundation::{GlobalFree, HGLOBAL},
+        Foundation::HGLOBAL,
         System::{
-            Com::{STGMEDIUM, STGMEDIUM_0, TYMED_HGLOBAL},
+            Com::STGMEDIUM,
             DataExchange::RegisterClipboardFormatW,
-            Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock},
+            Memory::{GlobalLock, GlobalUnlock},
             Ole::{DROPEFFECT_COPY, DROPEFFECT_MOVE, OleGetClipboard, OleSetClipboard, ReleaseStgMedium},
         },
     },
@@ -19,17 +19,9 @@ fn effect_format() -> u16 {
 
 pub fn set(paths: &[PathBuf], cut: bool) -> bool {
     let Some(obj) = data::object(paths) else { return false };
-    unsafe {
-        if let Ok(g) = GlobalAlloc(GMEM_MOVEABLE, 4) {
-            *(GlobalLock(g) as *mut u32) = if cut { DROPEFFECT_MOVE.0 } else { DROPEFFECT_COPY.0 };
-            let _ = GlobalUnlock(g);
-            let medium = STGMEDIUM { tymed: TYMED_HGLOBAL.0 as u32, u: STGMEDIUM_0 { hGlobal: g }, ..Default::default() };
-            if obj.SetData(&data::format(effect_format()), &medium, true).is_err() {
-                let _ = GlobalFree(Some(g));
-            }
-        }
-        OleSetClipboard(&obj).is_ok()
-    }
+    let effect = if cut { DROPEFFECT_MOVE.0 } else { DROPEFFECT_COPY.0 };
+    data::set_global(&obj, effect_format(), &effect.to_le_bytes());
+    unsafe { OleSetClipboard(&obj).is_ok() }
 }
 
 pub fn get() -> Option<(Vec<PathBuf>, bool)> {

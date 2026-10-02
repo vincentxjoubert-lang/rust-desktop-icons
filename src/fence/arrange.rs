@@ -1,6 +1,6 @@
-use super::{reload, update};
+use super::{reload, update, view};
 use crate::{
-    app::{App, with},
+    app::App,
     domain::{Kind, Sort, Tab, order},
     i18n::{self, T},
     layered::glyph as g,
@@ -29,7 +29,7 @@ pub(super) fn submenus(a: &mut App, m: HMENU, t: &Tab) {
 }
 
 fn names(h: HWND) -> Vec<String> {
-    with(|a| a.view(h).map(|v| v.items.iter().map(|i| store::name(&i.path)).collect())).flatten().unwrap_or_default()
+    view(h, |v| v.items.iter().map(|i| store::name(&i.path)).collect()).unwrap_or_default()
 }
 
 fn set_order(h: HWND, sort: Sort, order: Vec<String>) {

@@ -1,9 +1,9 @@
-use super::{TITLE, cell, label_font, metrics, reload, title_font, update};
+use super::{TITLE, cell, label_font, metrics, reload, title_font, update, view};
 use crate::{
     app::with,
     domain::{grid, names},
     i18n::T,
-    report, store,
+    report, shell, store,
     win::*,
 };
 use std::{fs, path::PathBuf};
@@ -57,7 +57,7 @@ fn open(h: HWND, r: RECT, text: &str, font: HFONT, target: Option<PathBuf>) {
         SendMessageW(e, WM_SETFONT, Some(WPARAM(font.0 as usize)), Some(LPARAM(1)));
         SendMessageW(e, EM_LIMITTEXT, Some(WPARAM(255)), None);
         SendMessageW(e, EM_SETSEL, Some(WPARAM(0)), Some(LPARAM(-1)));
-        with(|a| a.view(h).map(|v| v.edit = Some((e, target))));
+        view(h, |v| v.edit = Some((e, target)));
         let _ = SetForegroundWindow(e);
         let _ = SetFocus(Some(e));
     }
@@ -116,8 +116,11 @@ pub(super) fn finish(h: HWND, commit: bool) {
             let file = store::name(&path);
             if let Some(name) = names::renamed(&file, shown.as_deref().unwrap_or(&file), &text) {
                 let dest = path.with_file_name(&name);
-                let result =
-                    if dest.exists() { Err(std::io::Error::from(std::io::ErrorKind::AlreadyExists)) } else { fs::rename(&path, &dest) };
+                let result = if dest.exists() && !shell::same_path(&dest, &path) {
+                    Err(std::io::Error::from(std::io::ErrorKind::AlreadyExists))
+                } else {
+                    fs::rename(&path, &dest)
+                };
                 match result {
                     Ok(()) => reload(h),
                     Err(err) => report::alert(T::ErrRename, &format!("{file} → {name} ({err})")),

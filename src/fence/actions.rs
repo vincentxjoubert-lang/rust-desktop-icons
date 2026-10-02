@@ -1,4 +1,4 @@
-use super::{fence_of, update};
+use super::{fence_of, update, view};
 use crate::{app::with, i18n::T, report, rules, shell, store, win::*};
 use std::path::Path;
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
@@ -31,7 +31,7 @@ pub(super) fn delete(h: HWND) {
     if !confirm(h, T::ConfirmDelete) {
         return;
     }
-    with(|a| a.view(h).map(|v| v.watches.clear()));
+    view(h, |v| v.watches.clear());
     let errors: Vec<String> = f.tabs.iter().filter(|t| t.portal.is_none()).flat_map(|t| evacuate(&store::tab_dir(t))).collect();
     if !errors.is_empty() {
         report::failures(T::ErrDelete, &errors);

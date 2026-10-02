@@ -45,6 +45,14 @@ impl Config {
         self.fences.iter_mut().flat_map(|f| f.tabs.iter_mut()).for_each(|t| t.recycle = Some(t.id) == tab);
     }
 
+    pub fn tab(&self, fence: u64, tab: u64) -> Option<&Tab> {
+        self.fences.iter().find(|f| f.id == fence)?.tabs.iter().find(|t| t.id == tab)
+    }
+
+    pub fn tab_mut(&mut self, fence: u64, tab: u64) -> Option<&mut Tab> {
+        self.fences.iter_mut().find(|f| f.id == fence)?.tabs.iter_mut().find(|t| t.id == tab)
+    }
+
     pub fn rule_target(&self, kind: Kind) -> Option<(u64, u64)> {
         self.fences.iter().find_map(|f| f.tabs.iter().find(|t| t.portal.is_none() && t.kinds.contains(&kind)).map(|t| (f.id, t.id)))
     }

@@ -1,4 +1,4 @@
-use super::{TABS, TITLE, WM_CHANGED, actions, fence_of, layout, reload, to_client, update};
+use super::{TABS, TITLE, WM_CHANGED, actions, fence_of, layout, reload, to_client, update, view};
 use crate::{
     app::with,
     domain::{Tab, grid},
@@ -11,7 +11,7 @@ use windows::Win32::{Foundation::*, UI::Input::KeyboardAndMouse::DragDetect};
 
 pub fn bind(h: HWND) {
     let Some(dirs) = with(|a| a.fence_of(h).map(|f| f.tabs.iter().map(store::tab_dir).collect::<Vec<_>>())).flatten() else { return };
-    with(|a| a.view(h).map(|v| v.watches.clear()));
+    view(h, |v| v.watches.clear());
     let mut recycle_watch = None;
     let mut watches: Vec<shell::Watch> = dirs
         .iter()
@@ -29,7 +29,7 @@ pub fn bind(h: HWND) {
         })
         .collect();
     watches.extend(recycle_watch);
-    with(|a| a.view(h).map(|v| (v.watches, v.scroll) = (watches, 0)));
+    view(h, |v| (v.watches, v.scroll) = (watches, 0));
     reload(h);
 }
 
@@ -80,15 +80,16 @@ pub(super) fn select(h: HWND, i: usize) {
 
 fn add(h: HWND, portal: Option<PathBuf>) {
     let title = portal.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned());
-    with(|a| {
+    let dir = with(|a| {
         let (id, name) = (a.cfg.next_id(), a.t(T::NewTab));
         let f = a.fence_of(h)?;
         f.tabs.push(Tab { id, title: title.unwrap_or_else(|| name.into()), portal, ..Tab::default() });
         f.tab = f.tabs.len() - 1;
-        let _ = std::fs::create_dir_all(store::tab_dir(f.active()));
+        let dir = store::tab_dir(f.active());
         a.save();
-        Some(())
+        Some(dir)
     });
+    report::failures(T::ErrSave, &store::ensure(&dir.flatten().into_iter().collect::<Vec<_>>()));
     update(h, |_| {});
     bind(h);
 }

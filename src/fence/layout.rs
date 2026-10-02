@@ -1,6 +1,5 @@
-use super::{BORDER, TITLE, fence_of, metrics, render, update, xy};
+use super::{BORDER, TITLE, fence_of, flagged, metrics, read, render, update, view, xy};
 use crate::{
-    app::with,
     domain::{Fence, Zone, anim, grid, zone},
     win::*,
 };
@@ -9,14 +8,14 @@ use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 const MARGIN: i32 = 16;
 
 fn progress(h: HWND, f: &Fence) -> (f32, bool) {
-    with(|a| a.view(h).map(|v| (v.unroll, v.opening))).flatten().unwrap_or((if f.rolled { 0. } else { 1. }, false))
+    view(h, |v| (v.unroll, v.opening)).unwrap_or((if f.rolled { 0. } else { 1. }, false))
 }
 
 pub(super) fn full(h: HWND, f: &Fence) -> i32 {
     if !f.look.auto_height {
         return f.h;
     }
-    let n = with(|a| a.view(h).map(|v| v.items.len())).flatten().unwrap_or(0);
+    let n = view(h, |v| v.items.len()).unwrap_or(0);
     let floor = work_area(&window_rect(h)).bottom - window_rect(h).top - scale(h, MARGIN);
     grid::fit(n, f.w, metrics(h).0, scale(h, TITLE + 4 + 8), (scale(h, Fence::MIN.1), floor))
 }
@@ -27,13 +26,11 @@ pub(super) fn height(h: HWND, f: &Fence) -> i32 {
 }
 
 pub(super) fn self_sized(h: HWND, f: impl FnOnce()) {
-    with(|a| a.view(h).map(|v| v.sizing = true));
-    f();
-    with(|a| a.view(h).map(|v| v.sizing = false));
+    flagged(h, |v| &mut v.sizing, f);
 }
 
 pub(super) fn sizing(h: HWND) -> bool {
-    with(|a| a.view(h).map(|v| v.sizing)).flatten() == Some(true)
+    view(h, |v| v.sizing) == Some(true)
 }
 
 pub(super) fn resize(h: HWND, f: &Fence) {
@@ -61,12 +58,12 @@ pub(super) fn persist(h: HWND) {
 
 pub(super) fn hit(h: HWND, lp: LPARAM) -> u32 {
     let (r, (x, y)) = (window_rect(h), xy(lp));
-    let f = fence_of(h);
-    let folded = f.as_ref().is_some_and(|f| progress(h, f).0 < 1.);
+    let f = read(h, |f| (f.locked, f.look.auto_height, f.rolled));
+    let folded = f.is_some_and(|(_, _, rolled)| view(h, |v| v.unroll).unwrap_or(if rolled { 0. } else { 1. }) < 1.);
     let z = zone((r.right - r.left, r.bottom - r.top), (x - r.left, y - r.top), scale(h, BORDER), scale(h, TITLE), folded);
     let z = match f {
-        Some(f) if f.locked => z.fixed(),
-        Some(f) if f.look.auto_height => z.width_only(),
+        Some((true, _, _)) => z.fixed(),
+        Some((_, true, _)) => z.width_only(),
         _ => z,
     };
     match z {

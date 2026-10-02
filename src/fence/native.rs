@@ -1,4 +1,4 @@
-use super::edit;
+use super::{edit, view};
 use crate::{app::with, shell::menu, win::key_down};
 use std::path::PathBuf;
 use windows::Win32::{
@@ -9,9 +9,9 @@ use windows::Win32::{
 pub(super) fn show(h: HWND, paths: &[PathBuf], at: (i32, i32)) {
     let extended = key_down(VK_SHIFT);
     let Some(native) = menu::build(paths, extended) else { return };
-    with(|a| a.view(h).map(|v| v.native = Some(native.cm.clone())));
+    view(h, |v| v.native = Some(native.cm.clone()));
     let id = native.track(h, at);
-    with(|a| a.view(h).map(|v| v.native = None));
+    view(h, |v| v.native = None);
     let Some(id) = id else { return };
     if native.verb(id).eq_ignore_ascii_case("rename") {
         if let Some(p) = paths.first() {

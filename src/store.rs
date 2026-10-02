@@ -82,19 +82,26 @@ fn remove_all(p: &Path) -> io::Result<()> {
 }
 
 fn relocate(src: &Path, dst: &Path) -> io::Result<()> {
-    let undo = |e: io::Error| {
+    if let Err(e) = copy_all(src, dst) {
         let _ = remove_all(dst);
-        e
-    };
-    copy_all(src, dst).map_err(undo)?;
-    remove_all(src).map_err(undo)
+        return Err(e);
+    }
+    remove_all(src)
+}
+
+fn inside(dir: &Path, src: &Path) -> bool {
+    let canon = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    canon(dir).starts_with(canon(src))
 }
 
 pub fn move_into(src: &Path, dir: &Path) -> io::Result<PathBuf> {
     let name = src.file_name().ok_or(io::ErrorKind::InvalidInput)?;
+    if src.is_dir() && inside(dir, src) {
+        return Err(io::ErrorKind::InvalidInput.into());
+    }
     fs::create_dir_all(dir)?;
     let dst = unique(dir, name);
-    fs::rename(src, &dst).or_else(|_| relocate(src, &dst))?;
+    fs::rename(src, &dst).or_else(|e| if e.kind() == io::ErrorKind::CrossesDevices { relocate(src, &dst) } else { Err(e) })?;
     crate::shell::notify_moved(src, &dst);
     Ok(dst)
 }
@@ -111,6 +118,14 @@ pub fn evacuate(dir: &Path, to: &Path) -> (Vec<PathBuf>, Vec<String>) {
         let _ = fs::remove_dir(dir);
     }
     (moved, errors)
+}
+
+pub fn ensure(dirs: &[PathBuf]) -> Vec<String> {
+    dirs.iter().filter_map(|d| fs::create_dir_all(d).err().map(|e| format!("{} ({e})", d.display()))).collect()
+}
+
+pub fn tab_dirs() -> Vec<PathBuf> {
+    fs::read_dir(root().join("fences")).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect()
 }
 
 pub fn name(p: &Path) -> String {
@@ -175,6 +190,17 @@ mod tests {
         assert_eq!(dst, b.join("x (2).txt"));
         assert_eq!(fs::read_to_string(dst).unwrap(), "1");
         assert!(!a.join("x.txt").exists());
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn never_moves_into_itself() {
+        let d = tmp("self");
+        let src = d.join("dir");
+        fs::create_dir_all(src.join("sub")).unwrap();
+        assert!(move_into(&src, &src.join("sub")).is_err());
+        assert!(move_into(&src, &src).is_err());
+        assert!(src.join("sub").exists() && fs::read_dir(src.join("sub")).unwrap().next().is_none());
         fs::remove_dir_all(d).unwrap();
     }
 }

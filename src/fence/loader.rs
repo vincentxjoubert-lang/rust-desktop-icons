@@ -16,7 +16,7 @@ use std::{
 use windows::Win32::{
     Foundation::{HWND, LPARAM, WPARAM},
     System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx},
-    UI::WindowsAndMessaging::PostMessageW,
+    UI::WindowsAndMessaging::{MSG, PM_REMOVE, PeekMessageW, PostMessageW},
 };
 
 pub(super) const WM_LOADED: u32 = WM_CHANGED + TABS as u32;
@@ -86,6 +86,13 @@ pub(super) fn request(h: HWND, tabs: Vec<Tab>) {
             drop(unsafe { Box::from_raw(raw) });
         }
     });
+}
+
+pub(super) fn discard(h: HWND) {
+    let mut m = MSG::default();
+    while unsafe { PeekMessageW(&mut m, Some(h), WM_LOADED, WM_LOADED, PM_REMOVE) }.as_bool() {
+        drop(unsafe { Box::from_raw(m.lParam.0 as *mut Batch) });
+    }
 }
 
 pub(super) fn receive(h: HWND, lp: LPARAM) {

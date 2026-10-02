@@ -1,4 +1,5 @@
-use super::{ANIM, layout, paint};
+use super::{ANIM, layout, paint, view};
+use crate::domain::Fence;
 use crate::{
     app::with,
     domain::anim,
@@ -10,14 +11,19 @@ use windows::Win32::{
 };
 
 pub(super) fn start(h: HWND) {
-    let idle = with(|a| a.view(h).map(|v| v.tick.replace(v.tick.unwrap_or_else(now_ms)).is_none())).flatten();
+    let idle = view(h, |v| v.tick.replace(v.tick.unwrap_or_else(now_ms)).is_none());
     if idle == Some(true) {
         unsafe { SetTimer(Some(h), ANIM, 10, None) };
     }
 }
 
+pub(super) fn cached(h: HWND, f: &Fence) -> bool {
+    let busy = view(h, |v| v.inside || v.tick.is_some()).unwrap_or(false);
+    if f.rolled { busy } else { f.look.chameleon }
+}
+
 pub(super) fn animating(h: HWND) -> bool {
-    with(|a| a.view(h).map(|v| v.tick.is_some())).flatten() == Some(true)
+    view(h, |v| v.tick.is_some()) == Some(true)
 }
 
 pub(super) fn tick(h: HWND) {
@@ -60,5 +66,5 @@ pub(super) fn tick(h: HWND) {
     };
     let r = window_rect(h);
     layout::self_sized(h, || frame.present_top(h, (r.left, r.top), height, alpha));
-    with(|a| a.view(h).map(|v| v.frame = Some(frame)));
+    paint::store(h, Some(frame));
 }

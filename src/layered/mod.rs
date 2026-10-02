@@ -64,6 +64,13 @@ impl Frame {
         Some(out.bmp)
     }
 
+    pub fn compact(&mut self) {
+        unsafe { SelectObject(self.dc, self.canvas.bmp.into()) };
+        if let Some(m) = Dib::new(1, 1).filter(|_| self.mask.px().len() > 1) {
+            self.mask = m;
+        }
+    }
+
     pub fn clear_mask(&mut self) {
         self.mask.px().fill(0);
     }
@@ -74,11 +81,11 @@ impl Frame {
 
     pub fn text_layers(&mut self, fg: u32, shadow: u32, r: i32, rows: (i32, i32)) {
         let (w, h) = (self.w, self.h);
-        let soft = blur(self.mask.px(), w, h, r);
-        let mask = self.mask.px().to_vec();
-        let mut c = self.canvas();
+        let mask = self.mask.px();
+        let soft = blur(mask, w, h, r);
+        let mut c = Canvas { px: self.canvas.px(), w, h };
         c.layer(&soft, (0, 1), Some(premul(shadow, 190)), rows);
-        c.layer(&mask, (0, 0), Some(premul(fg, 255)), rows);
+        c.layer(mask, (0, 0), Some(premul(fg, 255)), rows);
     }
 
     #[cfg(debug_assertions)]

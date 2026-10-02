@@ -1,5 +1,5 @@
 use super::{View, with};
-use crate::{domain::Fence, fence, i18n::T, shell, store, win::*};
+use crate::{domain::Fence, fence, i18n::T, report, shell, store, win::*};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 pub fn register_verb() {
@@ -25,17 +25,18 @@ pub fn new_fence() {
     }) else {
         return;
     };
+    super::check_save();
     open(&f);
 }
 
 fn open(f: &Fence) {
-    if let Some(h) = fence::create(f) {
-        for t in f.tabs.iter().filter(|t| t.portal.is_none()) {
-            let _ = std::fs::create_dir_all(store::tab_dir(t));
-        }
-        with(|a| a.views.push(View::new(h, f)));
-        fence::bind(h);
-    }
+    let Some(h) = fence::create(f) else {
+        return report::log(&format!("cannot create the window of fence {}", f.id));
+    };
+    let dirs: Vec<_> = f.tabs.iter().filter(|t| t.portal.is_none()).map(store::tab_dir).collect();
+    report::failures(T::ErrSave, &store::ensure(&dirs));
+    with(|a| a.views.push(View::new(h, f)));
+    fence::bind(h);
 }
 
 pub fn rebuild() {

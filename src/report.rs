@@ -13,7 +13,11 @@ fn stamp() -> String {
 fn append(file: &str, msg: &str) {
     let dir = store::root();
     let _ = std::fs::create_dir_all(&dir);
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(dir.join(file)) {
+    let path = dir.join(file);
+    if std::fs::metadata(&path).is_ok_and(|m| m.len() > 1 << 20) {
+        let _ = std::fs::rename(&path, dir.join(format!("{file}.old")));
+    }
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "[{}] v{} {msg}", stamp(), env!("CARGO_PKG_VERSION"));
     }
 }

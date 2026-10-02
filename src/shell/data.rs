@@ -2,8 +2,10 @@ use crate::win::wide_path;
 use std::path::PathBuf;
 use windows::{
     Win32::{
+        Foundation::GlobalFree,
         System::{
-            Com::{DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
+            Com::{DVASPECT_CONTENT, FORMATETC, IDataObject, STGMEDIUM, STGMEDIUM_0, TYMED_HGLOBAL},
+            Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock},
             Ole::ReleaseStgMedium,
         },
         UI::Shell::{Common::ITEMIDLIST, *},
@@ -28,6 +30,20 @@ pub fn items<T: Interface>(paths: &[PathBuf], handler: &windows::core::GUID) -> 
             ILFree(Some(p));
         }
         out.flatten()
+    }
+}
+
+pub fn set_global(obj: &IDataObject, cf: u16, bytes: &[u8]) -> bool {
+    unsafe {
+        let Ok(g) = GlobalAlloc(GMEM_MOVEABLE, bytes.len()) else { return false };
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), GlobalLock(g) as *mut u8, bytes.len());
+        let _ = GlobalUnlock(g);
+        let medium = STGMEDIUM { tymed: TYMED_HGLOBAL.0 as u32, u: STGMEDIUM_0 { hGlobal: g }, ..Default::default() };
+        let ok = obj.SetData(&format(cf), &medium, true).is_ok();
+        if !ok {
+            let _ = GlobalFree(Some(g));
+        }
+        ok
     }
 }
 

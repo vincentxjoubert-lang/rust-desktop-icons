@@ -21,7 +21,7 @@ mod tabs;
 mod target;
 
 use crate::{
-    app::{App, with},
+    app::{App, View, with},
     domain::{Fence, icons},
     shell,
     win::*,
@@ -70,6 +70,20 @@ fn cursor(h: HWND) -> (i32, i32) {
     to_client(h, cursor_pos())
 }
 
+fn view<R>(h: HWND, f: impl FnOnce(&mut View) -> R) -> Option<R> {
+    with(|a| a.view(h).map(f)).flatten()
+}
+
+fn flagged(h: HWND, flag: fn(&mut View) -> &mut bool, f: impl FnOnce()) {
+    view(h, |v| *flag(v) = true);
+    f();
+    view(h, |v| *flag(v) = false);
+}
+
+fn read<R>(h: HWND, f: impl FnOnce(&Fence) -> R) -> Option<R> {
+    with(|a| a.fence_of(h).map(|x| f(x))).flatten()
+}
+
 fn fence_of(h: HWND) -> Option<Fence> {
     with(|a| a.fence_of(h).cloned()).flatten()
 }
@@ -85,7 +99,7 @@ fn update(h: HWND, f: impl FnOnce(&mut Fence)) {
 }
 
 fn metrics(h: HWND) -> (i32, i32) {
-    let px = fence_of(h).map_or(icons::DEFAULT, |f| f.look.icon);
+    let px = read(h, |f| f.look.icon).unwrap_or(icons::DEFAULT);
     (scale(h, icons::cell(px)), scale(h, px))
 }
 
@@ -141,7 +155,7 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
             unsafe { SetWindowPos(h, None, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE).ok() };
         }
         WM_MOVING => {
-            if fence_of(h).is_some_and(|f| f.locked) {
+            if read(h, |f| f.locked) == Some(true) {
                 unsafe { *(lp.0 as *mut RECT) = window_rect(h) };
             } else {
                 snap::moving(h, lp);
@@ -178,13 +192,16 @@ pub unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> L
         }
         WM_MOUSEWHEEL => {
             let step = (wp.0 >> 16) as i16 as i32 * metrics(h).0 / 120;
-            with(|a| a.view(h).map(|v| v.scroll -= step));
+            view(h, |v| v.scroll -= step);
             render(h);
         }
-        WM_DESTROY => target::revoke(h),
+        WM_DESTROY => {
+            target::revoke(h);
+            loader::discard(h);
+        }
         m if (WM_CHANGED..WM_CHANGED + TABS as u32).contains(&m) => {
             let i = (m - WM_CHANGED) as usize;
-            with(|a| a.view(h).map(|v| (!v.dirty.contains(&i)).then(|| v.dirty.push(i))));
+            view(h, |v| (!v.dirty.contains(&i)).then(|| v.dirty.push(i)));
             unsafe { SetTimer(Some(h), RELOAD, 150, None) };
         }
         loader::WM_LOADED => loader::receive(h, lp),

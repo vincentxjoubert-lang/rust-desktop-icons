@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use std::{env, error::Error, fs, os::windows::process::CommandExt, path::PathBuf, process::Command, time::Duration};
+use std::{env, error::Error, fs, io::Write, os::windows::process::CommandExt, path::PathBuf, process::Command, time::Duration};
 
 const REPO: &str = "vincentxjoubert-lang/rust-desktop-icons";
 const MAX_MSI: u64 = 64 << 20;
@@ -43,14 +43,18 @@ pub fn parse(v: &str) -> Option<[u64; 3]> {
 pub fn run() -> Outcome {
     match fetch() {
         Ok(None) => Outcome::Current,
-        Ok(Some(msi)) => match install(&msi) {
-            Ok(0 | 1641 | 3010) => Outcome::Installed,
-            Ok(code) => Outcome::InstallFailed(code),
-            Err(e) => {
-                crate::report::log(&format!("msiexec: {e}"));
-                Outcome::InstallFailed(0)
+        Ok(Some(msi)) => {
+            let r = install(&msi);
+            let _ = fs::remove_file(&msi);
+            match r {
+                Ok(0 | 1641 | 3010) => Outcome::Installed,
+                Ok(code) => Outcome::InstallFailed(code),
+                Err(e) => {
+                    crate::report::log(&format!("msiexec: {e}"));
+                    Outcome::InstallFailed(0)
+                }
             }
-        },
+        }
         Err(e) => {
             crate::report::log(&format!("update check: {e}"));
             Outcome::Failed
@@ -92,8 +96,10 @@ fn fetch() -> Res<Option<PathBuf>> {
     if !verify(&msi, &sum) {
         return Err("checksum mismatch".into());
     }
-    let path = env::temp_dir().join(format!("rust-desktop-icons-{}.{}.{}.msi", latest[0], latest[1], latest[2]));
-    fs::write(&path, msi)?;
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+    let path =
+        env::temp_dir().join(format!("rust-desktop-icons-{}.{}.{}-{}-{nonce}.msi", latest[0], latest[1], latest[2], std::process::id()));
+    fs::OpenOptions::new().write(true).create_new(true).open(&path)?.write_all(&msi)?;
     Ok(Some(path))
 }
 

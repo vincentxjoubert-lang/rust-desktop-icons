@@ -1,4 +1,4 @@
-use super::{TITLE, ghost, items, metrics, recycle, render};
+use super::{TITLE, ghost, items, metrics, recycle, render, view};
 use crate::{app::with, domain::grid, rules, shell, win::*};
 use std::{collections::HashSet, path::PathBuf};
 use windows::Win32::{
@@ -10,28 +10,26 @@ use windows::Win32::{
 const GAP: i32 = 4;
 
 fn content(h: HWND, (x, y): (i32, i32)) -> (i32, i32) {
-    let scroll = with(|a| a.view(h).map(|v| v.scroll)).flatten().unwrap_or(0);
+    let scroll = view(h, |v| v.scroll).unwrap_or(0);
     (x, y - scale(h, TITLE) - scale(h, GAP) + scroll)
 }
 
 pub(super) fn all(h: HWND) {
-    let paths = with(|a| a.view(h).map(|v| v.items.iter().map(|i| i.path.clone()).collect())).flatten().unwrap_or_default();
+    let paths = view(h, |v| v.items.iter().map(|i| i.path.clone()).collect()).unwrap_or_default();
     replace(h, paths);
 }
 
 pub(super) fn replace(h: HWND, paths: HashSet<PathBuf>) {
-    with(|a| a.view(h).map(|v| v.selected = paths));
+    view(h, |v| v.selected = paths);
     render(h);
 }
 
 pub(super) fn selection(h: HWND) -> Vec<PathBuf> {
-    with(|a| a.view(h).map(|v| v.items.iter().filter(|i| v.selected.contains(&i.path)).map(|i| i.path.clone()).collect()))
-        .flatten()
-        .unwrap_or_default()
+    view(h, |v| v.items.iter().filter(|i| v.selected.contains(&i.path)).map(|i| i.path.clone()).collect()).unwrap_or_default()
 }
 
 pub(super) fn focus(h: HWND, p: &PathBuf) -> Vec<PathBuf> {
-    if !with(|a| a.view(h).map(|v| v.selected.contains(p))).flatten().unwrap_or(false) {
+    if !view(h, |v| v.selected.contains(p)).unwrap_or(false) {
         replace(h, HashSet::from([p.clone()]));
     }
     selection(h)
@@ -63,7 +61,7 @@ pub(super) fn down(h: HWND, p: (i32, i32), ctrl: bool) {
         return render(h);
     };
     if ctrl {
-        with(|a| a.view(h).map(|v| v.selected.insert(path.clone()) || v.selected.remove(&path)));
+        view(h, |v| v.selected.insert(path.clone()) || v.selected.remove(&path));
         return render(h);
     }
     let paths = focus(h, &path);

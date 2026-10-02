@@ -28,7 +28,7 @@ fn look() -> Look {
 
 fn rule(h: HWND, fence: u64, tab: u64) {
     let Some(options) = with(|a| {
-        let t = a.cfg.fences.iter().find(|f| f.id == fence)?.tabs.iter().find(|t| t.id == tab)?;
+        let t = a.cfg.tab(fence, tab)?;
         Some(Kind::ALL.iter().map(|k| (a.t(i18n::kind(*k)).to_string(), t.kinds.contains(k))).collect())
     })
     .flatten() else {
@@ -36,7 +36,7 @@ fn rule(h: HWND, fence: u64, tab: u64) {
     };
     let Some(k) = choose(h, options).map(|i| Kind::ALL[i]) else { return };
     change(|c| {
-        if let Some(t) = c.fences.iter_mut().find(|f| f.id == fence).and_then(|f| f.tabs.iter_mut().find(|t| t.id == tab)) {
+        if let Some(t) = c.tab_mut(fence, tab) {
             if t.kinds.contains(&k) {
                 t.kinds.retain(|x| *x != k);
             } else {

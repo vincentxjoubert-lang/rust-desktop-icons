@@ -68,11 +68,15 @@ impl Canvas<'_> {
         }
     }
 
-    pub fn layer(&mut self, src: &[u32], (dx, dy): (i32, i32), tint: Option<u32>, rows: (i32, i32)) {
+    pub fn layer<P: Copy + Into<u32>>(&mut self, src: &[P], (dx, dy): (i32, i32), tint: Option<u32>, rows: (i32, i32)) {
         for y in rows.0.max(0).max(dy)..rows.1.min(self.h).min(self.h + dy) {
             for x in dx.max(0)..self.w.min(self.w + dx) {
-                let s = src[((y - dy) * self.w + x - dx) as usize];
-                let s = tint.map_or(s, |t| fade(t, s & 0xFF));
+                let s: u32 = src[((y - dy) * self.w + x - dx) as usize].into();
+                let s = match tint {
+                    Some(_) if s & 0xFF == 0 => continue,
+                    Some(t) => fade(t, s & 0xFF),
+                    None => s,
+                };
                 if s != 0 {
                     let i = (y * self.w + x) as usize;
                     self.px[i] = over(self.px[i], s);

@@ -1,4 +1,4 @@
-use super::{TITLE, fence_of, loader, metrics, render, update};
+use super::{TITLE, fence_of, loader, metrics, render, update, view};
 use crate::{app::with, win::*};
 use std::path::PathBuf;
 use windows::Win32::Foundation::HWND;
@@ -10,7 +10,7 @@ pub fn reload(h: HWND) {
 }
 
 pub(super) fn refresh(h: HWND) {
-    let dirty = with(|a| a.view(h).map(|v| std::mem::take(&mut v.dirty))).flatten().unwrap_or_default();
+    let dirty = view(h, |v| std::mem::take(&mut v.dirty)).unwrap_or_default();
     if let Some(f) = fence_of(h) {
         loader::request(h, f.tabs.into_iter().enumerate().filter(|(i, _)| dirty.contains(i)).map(|(_, t)| t).collect());
     }
@@ -43,7 +43,7 @@ pub(super) fn item_at(h: HWND, p: (i32, i32)) -> Option<PathBuf> {
 }
 
 pub(super) fn hover(h: HWND, i: Option<usize>) {
-    if with(|a| a.view(h).map(|v| std::mem::replace(&mut v.hover, i) != i)).flatten() == Some(true) {
+    if view(h, |v| std::mem::replace(&mut v.hover, i) != i) == Some(true) {
         render(h);
     }
 }

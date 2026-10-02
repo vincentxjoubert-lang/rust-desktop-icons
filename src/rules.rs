@@ -67,10 +67,7 @@ pub fn run(tray: Option<HWND>, all: bool) {
             }
             let target = shell::link_target(&p);
             let kinds = candidates(p.extension().and_then(|e| e.to_str()), p.is_dir(), target.as_deref());
-            let tab = kinds
-                .into_iter()
-                .find_map(|k| cfg.rule_target(k))
-                .and_then(|(f, t)| cfg.fences.iter().find(|x| x.id == f)?.tabs.iter().find(|x| x.id == t));
+            let tab = kinds.into_iter().find_map(|k| cfg.rule_target(k)).and_then(|(f, t)| cfg.tab(f, t));
             if let Some(tab) = tab {
                 match store::move_into(&p, &store::tab_dir(tab)) {
                     Ok(_) => moved += 1,

@@ -1,4 +1,4 @@
-use super::{PREPARE, TITLE, anim, cell, fence_of, header, label_font, layout, metrics, title_font};
+use super::{PREPARE, TITLE, anim, cell, fence_of, header, label_font, layout, metrics, title_font, view};
 use crate::{
     app::with,
     domain::{self, color, grid},
@@ -12,8 +12,12 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{KillTimer, SetTimer},
 };
 
-fn store(h: HWND, frame: Option<Frame>) {
-    with(|a| a.view(h).map(|v| v.frame = frame));
+pub(super) fn store(h: HWND, frame: Option<Frame>) {
+    let frame = frame.filter(|_| fence_of(h).is_some_and(|f| anim::cached(h, &f))).map(|mut fr| {
+        fr.compact();
+        fr
+    });
+    view(h, |v| v.frame = frame);
 }
 
 pub fn render(h: HWND) {
@@ -24,21 +28,23 @@ pub fn render(h: HWND) {
     let size = (wr.right - wr.left, wr.bottom - wr.top);
     let Some((frame, alpha)) = draw(h, size, false) else { return };
     frame.present(h, (wr.left, wr.top), alpha);
-    let open = with(|a| a.view(h).map(|v| v.unroll == 1.)).flatten() == Some(true);
+    let open = view(h, |v| v.unroll == 1.) == Some(true);
     if open && fence_of(h).is_some_and(|f| layout::full(h, &f) == size.1) {
         store(h, Some(frame));
     } else {
         store(h, None);
-        unsafe { SetTimer(Some(h), PREPARE, 150, None) };
+        if fence_of(h).is_some_and(|f| anim::cached(h, &f)) {
+            unsafe { SetTimer(Some(h), PREPARE, 150, None) };
+        }
     }
 }
 
 pub(super) fn prepare(h: HWND) {
     let _ = unsafe { KillTimer(Some(h), PREPARE) };
-    if anim::animating(h) || with(|a| a.view(h).map(|v| v.frame.is_some())).flatten() != Some(false) {
+    if anim::animating(h) || view(h, |v| v.frame.is_some()) != Some(false) {
         return;
     }
-    if let Some(f) = fence_of(h) {
+    if let Some(f) = fence_of(h).filter(|f| anim::cached(h, f)) {
         store(h, draw(h, (f.w, layout::full(h, &f)), true).map(|(fr, _)| fr));
     }
 }

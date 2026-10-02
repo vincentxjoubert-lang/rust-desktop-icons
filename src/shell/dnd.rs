@@ -5,7 +5,7 @@ use windows::{
         Graphics::Gdi::{DeleteObject, HBITMAP},
         System::{
             Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, CoTaskMemFree, IDataObject},
-            Ole::{DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE},
+            Ole::{DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, IDropSource},
         },
         UI::Shell::*,
     },
@@ -52,10 +52,6 @@ pub fn drag_out(h: HWND, paths: &[PathBuf], image: Option<DragImage>, move_only:
     if let Some(img) = image {
         attach(&obj, img);
     }
-    let (source, effects) = if move_only {
-        (Some(super::source::desktop_friendly()), DROPEFFECT_MOVE)
-    } else {
-        (None, DROPEFFECT_MOVE | DROPEFFECT_COPY | DROPEFFECT_LINK)
-    };
-    let _ = unsafe { SHDoDragDrop(Some(h), &obj, source.as_ref(), effects) };
+    let effects = if move_only { DROPEFFECT_MOVE } else { DROPEFFECT_MOVE | DROPEFFECT_COPY | DROPEFFECT_LINK };
+    let _ = unsafe { SHDoDragDrop(Some(h), &obj, None::<&IDropSource>, effects) };
 }

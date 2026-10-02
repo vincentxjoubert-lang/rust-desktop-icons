@@ -17,7 +17,7 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Build: `cargo build --release`
 - MSI (local): needs WiX 5.0.2 (`dotnet tool install wix --version 5.0.2`) + `wix extension add -g WixToolset.UI.wixext/5.0.2 WixToolset.Util.wixext/5.0.2`:
   `wix build installer/main.wxs -d Version=0.1.0 -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o target/rdi.msi`
-- Release: bump `version` in Cargo.toml, commit, push tag `vX.Y.Z` → `.github/workflows/release.yml` builds and publishes MSI + `.sha256`.
+- Release: bump `version` in Cargo.toml, write the changelog in `.github/release-notes.md` (used as the release body), commit, push tag `vX.Y.Z` → `.github/workflows/release.yml` builds and publishes MSI + `.sha256`.
 
 ## Layout
 - `src/domain/` pure logic, all unit-tested: `model.rs` (Fence/Tab/Look), `config.rs` (Config, recycle placement), `kind.rs` (file types + game
@@ -27,7 +27,8 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
   `update.rs` updater (30 s network timeout, waits for msiexec; the MSI closes/relaunches the app);
   `rules.rs` desktop watcher + auto-sort (files younger than 10 s are retried later); `prefs.rs` global prefs;
   `report.rs` errors: `report::alert` (dialog + `errors.log`), `report::log`, panic hook -> `crash.log`;
-  `uninstall.rs` (`--uninstall`, run by the MSI on real uninstall only: moves fence contents back to the desktop).
+  `uninstall.rs` (`--uninstall`, run by the MSI on real uninstall only: moves every `fences/*` folder found on disk back to the desktop, never trusting the config,
+  and deletes the app folder only once they are gone).
 - `src/app/` global state: `mod.rs` App + `with` + startup, `view.rs` per-window state, `res.rs` fonts/glyphs/menu
   entries with icons, `fences.rs` create/rebuild fences; `src/tray/` tray icon/menu (`updates.rs` update scheduling).
 - `src/render/` pure pixel ops: `mod.rs` blending + `Canvas`, `pixels.rs` gray/tint/straight alpha, `blur.rs`.
@@ -59,8 +60,10 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - Present layered windows outside `app::with` (UpdateLayeredWindow re-enters the window proc).
 - Roll/fade animation never re-renders per frame: `paint::draw(.., open=true)` once into `View.frame`, then
   `Frame::present_top` crops it; ticks use the QPC clock (`win::now_ms`; DWM vblank timing goes stale on an idle desktop, never use it), WM_SIZE skips render
-  while animating (`View.sizing` marks self-caused resizes). `render` keeps the open frame as the cache when fully
-  unrolled, and a `PREPARE` timer rebuilds it 150 ms after it is invalidated, so animations never start with a full draw. `Canvas::rrect` fast-paths straight rows and `blur` only processes rows with text (tests prove equality).
+  while animating (`View.sizing` marks self-caused resizes). RAM first: the open frame is cached (canvas only,
+  `Frame::compact`) only while an animation can start (`anim::cached`: rolled fence hovered/animating, or chameleon);
+  `PREPARE` rebuilds it 150 ms after invalidation. Icons draw straight from the system image list (`IImageList::Draw`, no HICON),
+  blur works on u8 buffers, hot paths read the fence via `read(h, ..)` instead of cloning it. `Canvas::rrect` fast-paths straight rows and `blur` only processes rows with text (tests prove equality).
 
 ## Gotchas
 - Debug builds use a separate single-instance mutex, so they run beside the installed app. For visual checks, run the debug exe
@@ -77,6 +80,8 @@ Rust 2024 (1.98), `windows` 0.62 (raw Win32/GDI), serde/serde_json, ureq 3 (rust
 - The desktop right-click verb (`HKCU\Software\Classes\DesktopBackground\Shell\RustDesktopIcons`) is written by the
   release app at startup (localized, runs `exe --new`), removed by the MSI on uninstall. On Windows 11 it only shows under
   "Show more options" (the modern menu needs a packaged IExplorerCommand).
+- `store::move_into` refuses to move a folder into itself and only falls back to copy+delete across volumes (never deletes a
+  complete copy). Use `fence::view(h, ..)` for per-window state, `Config::tab` for fence/tab lookups.
 - Desktop files are always moved, never copied: public-desktop items go through `shell::transfer` (UAC), only files
   from other folders become shortcuts. Debug builds never touch the real desktop (verb, Recycle Bin visibility).
 - MSI desktop shortcut: created on first install (checkbox, default on). On upgrades it is only recreated if it still

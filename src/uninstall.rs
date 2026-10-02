@@ -11,13 +11,8 @@ pub fn run() {
         shell::recycle::show_on_desktop(true);
     }
     let Some(desk) = shell::desktop() else { return };
-    let errors: Vec<String> = cfg
-        .fences
-        .iter()
-        .flat_map(|f| f.tabs.iter().filter(|t| t.portal.is_none()))
-        .flat_map(|t| store::evacuate(&store::tab_dir(t), &desk).1)
-        .collect();
-    if errors.is_empty() {
+    let errors: Vec<String> = store::tab_dirs().iter().flat_map(|d| store::evacuate(d, &desk).1).collect();
+    if errors.is_empty() && store::tab_dirs().is_empty() {
         let _ = std::fs::remove_dir_all(store::root());
         return;
     }
